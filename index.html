@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#111111">
+<meta property="og:title" content="TH company | 온라인명함">
+<meta property="og:description" content="퀵서비스 · 배송 · 운송 · 출장서비스 · 각종 물품">
+<meta property="og:type" content="website">
+<title>TH company | 온라인명함</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#111;color:#fff;font-family:Arial,"Noto Sans KR",sans-serif}
+.wrap{max-width:760px;margin:auto;padding:14px 12px 30px}
+.card{background:#171717;border:2px solid #ffe000;border-radius:24px;overflow:hidden;box-shadow:0 12px 35px rgba(0,0,0,.45)}
+.hero{width:100%;display:block}
+.content{padding:18px 16px 22px}
+.title{font-size:30px;font-weight:900;margin:0 0 5px;color:#ffe000}
+.sub{margin:0 0 18px;color:#ddd;font-size:16px}
+.buttons{display:grid;grid-template-columns:1fr;gap:12px}
+.btn{display:flex;align-items:center;justify-content:center;min-height:62px;border-radius:17px;text-decoration:none;font-weight:900;font-size:19px;cursor:pointer}
+.call,.kakao{background:#ffe000;color:#111}
+.share,.copy{background:#2b2b2b;color:#fff;border:1px solid #4b4b4b}
+.phone{font-size:27px;font-weight:950;color:#ffe000;text-align:center;margin:22px 0 5px}
+.hint{font-size:13px;color:#999;text-align:center;margin:0}
+.footer{text-align:center;color:#888;font-size:12px;padding:15px 0 0}
+@media(min-width:560px){.buttons{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <img class="hero" src="th-company-banner.png" alt="TH company 광고 이미지">
+    <div class="content">
+      <h1 class="title">TH company</h1>
+      <p class="sub">퀵서비스 · 배송 · 운송 · 출장서비스 · 각종 물품</p>
+      <div class="buttons">
+        <a class="btn call" href="tel:01021457576">📞 전화하기</a>
+        <a class="btn kakao" href="https://open.kakao.com/me/THcompany" target="_blank" rel="noopener">💬 카카오톡 상담</a>
+        <button class="btn share" onclick="shareCard()">📤 명함 공유하기</button>
+        <button class="btn copy" onclick="copyLink()">🔗 온라인명함 링크 복사</button>
+      </div>
+      <div class="phone">010-2145-7576</div>
+      <p class="hint">전화 또는 카카오톡 버튼을 눌러 바로 문의하실 수 있습니다.</p>
+    </div>
+  </div>
+  <div class="footer">TH company · 빠르게, 안전하게, 정확하게!</div>
+</div>
+<script>
+const CARD_URL = location.href;
+async function shareCard(){
+  const data={title:"TH company 온라인명함",text:"TH company | 퀵서비스·배송·운송 문의",url:CARD_URL};
+  if(navigator.share){try{await navigator.share(data)}catch(e){}}
+  else{await copyLink();alert("온라인명함 링크를 복사했습니다.");}
+}
+async function copyLink(){
+  try{await navigator.clipboard.writeText(CARD_URL);alert("온라인명함 링크가 복사되었습니다.")}
+  catch(e){prompt("아래 링크를 복사해 주세요.",CARD_URL)}
+}
+</script>
+</body>
+</html>
