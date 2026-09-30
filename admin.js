@@ -1,6 +1,7 @@
 'use strict';
 const $=id=>document.getElementById(id),cfg=window.TH_CONFIG||{};
 let session=null,rows=[],offset=0,generation=0,remember=false,refreshing=null,authEpoch=0;
+let activeList='pending';
 const storageKey='th-admin-session:'+cfg.url;
 function clearStored(){try{localStorage.removeItem(storageKey);}catch{}}
 function persist(){if(!remember||!session)return;try{localStorage.setItem(storageKey,JSON.stringify({access_token:session.access_token,refresh_token:session.refresh_token,expires_at:session.expires_at}));}catch{notice('이 브라우저에서는 로그인 유지 정보를 저장할 수 없습니다.');}}
@@ -24,10 +25,12 @@ async function ensureSession(){
  const data=await res.json();if(epoch!==authEpoch)return;session={...data,expires_at:Math.floor(Date.now()/1000)+data.expires_in};persist();
  })();try{await refreshing;}finally{refreshing=null;}
 }
-function render(){const q=$('search').value.toLowerCase();$('orders').replaceChildren();const filtered=rows.filter(r=>(r.summary+' '+r.id).toLowerCase().includes(q));$('count').textContent=`불러온 주문 ${rows.length}건`;if(!filtered.length){const p=document.createElement('p');p.textContent=q?'검색 결과가 없습니다.':'접수된 주문이 없습니다.';$('orders').append(p);}
- for(const r of filtered){const card=document.createElement('article'),title=document.createElement('h2'),time=document.createElement('p'),pre=document.createElement('pre'),copy=document.createElement('button');title.textContent='주문번호 '+r.id;title.style.overflowWrap='anywhere';time.textContent=new Date(r.created_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})+' 접수';pre.textContent=r.summary;copy.textContent='코리아센타 입력용 내용 복사';copy.onclick=async()=>{try{await navigator.clipboard.writeText(r.summary);notice('복사했습니다. 코리아센타에 붙여넣어 주세요.');}catch{notice('복사할 수 없습니다. 주문 내용을 선택해 직접 복사해 주세요.');}};card.append(title,time,pre,copy);$('orders').append(card);}
+function render(){const q=$('search').value.toLowerCase();$('orders').replaceChildren();const filtered=rows.filter(r=>(r.summary+' '+r.id).toLowerCase().includes(q));$('count').textContent=`${activeList==='pending'?'미처리':'완료'} 주문 ${rows.length}건 (불러온 목록)`;if(!filtered.length){const p=document.createElement('p');p.textContent=q?'검색 결과가 없습니다.':(activeList==='pending'?'미처리 주문이 없습니다.':'완료 주문이 없습니다.');$('orders').append(p);}
+ for(const r of filtered){const card=document.createElement('article'),title=document.createElement('h2'),time=document.createElement('p'),pre=document.createElement('pre'),copy=document.createElement('button');title.textContent='주문번호 '+r.id;title.style.overflowWrap='anywhere';time.textContent=new Date(r.created_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})+' 접수';pre.textContent=r.summary;copy.textContent='코리아센타 입력용 내용 복사';copy.onclick=async()=>{try{await navigator.clipboard.writeText(r.summary);notice('복사했습니다. 코리아센타에 붙여넣어 주세요.');}catch{notice('복사할 수 없습니다. 주문 내용을 선택해 직접 복사해 주세요.');}};const action=document.createElement('button');action.className='secondary';action.style.marginLeft='10px';action.textContent=r.completed_at?'미처리로 되돌리기':'완료';action.onclick=()=>markOrder(r,action);
+ if(r.completed_at){const completed=document.createElement('p');completed.textContent='접수 처리 완료: '+new Date(r.completed_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'});card.append(completed);}
+ card.append(title,time,pre,copy,action);$('orders').append(card);}
 }
-async function load(reset=false){const g=++generation;$('refresh').disabled=$('more').disabled=true;notice('주문을 불러오는 중입니다.');try{await ensureSession();if(reset){rows=[];offset=0;}const data=await api(`/rest/v1/th_orders?select=id,created_at,summary&order=created_at.desc,id.desc&limit=50&offset=${offset}`);if(g!==generation||!session)return;const ids=new Set(rows.map(r=>r.id));rows.push(...data.filter(r=>!ids.has(r.id)));offset+=data.length;$('more').hidden=data.length<50;render();notice('주문 목록을 확인했습니다.');}catch(e){notice(e.message);}finally{$('refresh').disabled=$('more').disabled=false;}}
+async function load(reset=false){const g=++generation,list=activeList;$('refresh').disabled=$('more').disabled=true;notice('주문을 불러오는 중입니다.');try{await ensureSession();if(g!==generation||!session)return;if(reset){rows=[];offset=0;render();}const data=await api(`/rest/v1/th_orders?select=id,created_at,summary,completed_at&completed_at=${list==='pending'?'is.null':'not.is.null'}&order=created_at.desc,id.desc&limit=50&offset=${offset}`);if(g!==generation||!session)return;const ids=new Set(rows.map(r=>r.id));rows.push(...data.filter(r=>!ids.has(r.id)));offset+=data.length;$('more').hidden=data.length<50;render();notice('주문 목록을 확인했습니다.');}catch(e){if(g===generation)notice(e.message);}finally{if(g===generation)$('refresh').disabled=$('more').disabled=false;}}
 async function signout(){const old=session;clearLocal();notice('로그아웃했습니다.');if(old)try{await fetch(cfg.url+'/auth/v1/logout',{method:'POST',headers:{apikey:cfg.publicKey,Authorization:'Bearer '+old.access_token}});}catch{}}
 $('loginForm').onsubmit=async e=>{e.preventDefault();if(!configured()){notice('주문 저장 서비스 연결 전입니다. config.js 설정이 필요합니다.');return;}$('loginButton').disabled=true;try{const data=await api('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email:$('email').value.trim(),password:$('password').value})});session={...data,expires_at:Math.floor(Date.now()/1000)+data.expires_in};await checkAdmin();remember=$('remember').checked;clearStored();persist();$('password').value='';$('login').hidden=true;$('inbox').hidden=false;await load(true);}catch(e){notice(e.message);}finally{$('loginButton').disabled=false;}};
 $('logout').onclick=signout;$('refresh').onclick=()=>load(true);$('more').onclick=()=>load(false);$('search').oninput=render;
@@ -43,3 +46,13 @@ async function renew(){if(!session)return;try{await ensureSession();}catch(e){no
 setInterval(renew,30000);
 window.addEventListener('focus',renew);
 restore();
+
+async function markOrder(order,button){button.disabled=true;const epoch=authEpoch;notice('완료 여부를 저장하고 있습니다.');try{await ensureSession();if(!session||epoch!==authEpoch)return;
+ const data=await api('/rest/v1/th_orders?id=eq.'+encodeURIComponent(order.id),{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({completed_at:order.completed_at?null:new Date().toISOString()})});
+ if(epoch!==authEpoch||!session)return;if(!data||data.length!==1)throw Error('저장 결과를 확인하지 못했습니다. 새로고침 후 다시 확인해 주세요.');
+ await load(true);
+ }catch(e){notice(e.message);button.disabled=false;}}
+async function selectList(list){activeList=list;$('search').value='';rows=[];offset=0;$('orders').replaceChildren();$('more').hidden=true;
+ $('pendingTab').setAttribute('aria-pressed',String(list==='pending'));$('completedTab').setAttribute('aria-pressed',String(list==='completed'));
+ $('pendingTab').className=list==='pending'?'':'secondary';$('completedTab').className=list==='completed'?'':'secondary';await load(true);}
+$('pendingTab').onclick=()=>selectList('pending');$('completedTab').onclick=()=>selectList('completed');
