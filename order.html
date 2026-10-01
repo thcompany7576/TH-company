@@ -2,17 +2,17 @@
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>퀵서비스 주문 | TH company</title><style>
 *{box-sizing:border-box}body{margin:0;background:#111;color:#fff;font-family:Arial,sans-serif;line-height:1.6}main{max-width:760px;margin:auto;padding:24px 16px}a{color:#ffe000}h1{color:#ffe000;font-size:28px;margin-bottom:0}h2{font-size:20px}section{background:#1c1c1c;border:1px solid #444;border-radius:18px;padding:20px;margin:18px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}label{display:block;margin:10px 0}input,select,textarea,button{font:inherit}input:not([type=checkbox]),select,textarea{display:block;width:100%;background:#292929;color:#fff;border:1px solid #777;border-radius:9px;padding:12px;margin-top:5px}input[type=checkbox]{width:20px;height:20px;vertical-align:middle}button{padding:14px;border-radius:12px;border:0;background:#ffe000;color:#111;font-weight:bold;min-height:48px;cursor:pointer}.secondary{background:#333;color:#fff;border:1px solid #777}small,.muted{color:#c6c6c6}fieldset{border:0;padding:0;margin:0}legend{font-weight:bold}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit} [hidden]{display:none!important}.actions{display:flex;flex-wrap:wrap;gap:10px}input:focus,select:focus,textarea:focus,button:focus{outline:2px solid #ffe000;outline-offset:3px}@media(max-width:540px){.grid{grid-template-columns:1fr}section{padding:16px}}
 
-#orderMap{width:100%;height:330px;border-radius:12px;background:#292929}.address-search{margin:0 0 8px}.schedule-toggle{display:flex;align-items:center;gap:10px;margin-top:20px}.schedule-toggle input{appearance:none;width:44px;height:24px;background:#555;border:1px solid #888;border-radius:24px;position:relative;cursor:pointer;flex-shrink:0}.schedule-toggle input:before{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:left .15s}.schedule-toggle input:checked{background:#ffe000;border-color:#ffe000}.schedule-toggle input:checked:before{left:23px;background:#111}#urgentButton[aria-pressed=true]{background:#ffe000;color:#111;border-color:#ffe000}.stop{border:1px solid #555;border-radius:12px;padding:14px;margin:12px 0}.map-status{min-height:26px}button:disabled{opacity:.6;cursor:wait}@media(max-width:540px){#orderMap{height:280px}}
+#orderMap{width:100%;height:330px;border-radius:12px;background:#292929}.address-search{margin:0 0 8px}.schedule-note{font-size:12px;font-weight:normal;white-space:nowrap}.schedule-toggle{flex-wrap:wrap;display:flex;align-items:center;gap:10px;margin-top:20px}.schedule-toggle input{appearance:none;width:44px;height:24px;background:#555;border:1px solid #888;border-radius:24px;position:relative;cursor:pointer;flex-shrink:0}.schedule-toggle input:before{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:left .15s}.schedule-toggle input:checked{background:#ffe000;border-color:#ffe000}.schedule-toggle input:checked:before{left:23px;background:#111}#urgentButton[aria-pressed=true]{background:#ffe000;color:#111;border-color:#ffe000}.stop{border:1px solid #555;border-radius:12px;padding:14px;margin:12px 0}.map-status{min-height:26px}button:disabled{opacity:.6;cursor:not-allowed}input:disabled+span{opacity:.6}input[readonly]{cursor:default;border-style:dashed}.schedule-toggle input:disabled{opacity:.4;cursor:not-allowed}@media(max-width:540px){#orderMap{height:280px}}
 </style></head><body><main><a href="index.html">← 온라인명함</a><h1>퀵서비스 주문하기</h1><p class="muted">오토바이 전용 · 전국 접수</p><form id="order">
-<section><h2>서비스 종류</h2><label>어떤 서비스를 원하시나요?<select name="serviceType" id="serviceType"><option value="일반 배송">일반 배송</option><option value="구매대행">구매대행</option><option value="서류접수 대행">서류접수 대행</option><option value="소형제품 수리접수 대행">소형제품 수리접수 대행</option></select></label><p id="serviceHint" class="muted" aria-live="polite">서류나 소형 물품을 출발지에서 도착지로 배송합니다.</p><input type="hidden" name="urgent" id="urgent" value="no"><button type="button" id="urgentButton" class="secondary" aria-pressed="false">급송 요청</button><p id="urgentInfo" class="muted" aria-live="polite">빠른 배송이 필요하면 급송 요청을 선택해 주세요.</p></section>
-<section><h2>출발지</h2><label>주소<input name="from" required autocomplete="street-address" placeholder="도로명 또는 지번 주소"></label><button type="button" class="secondary address-search" data-address-search="from">출발지 주소 검색</button><label>상세주소<input name="fromDetail" required placeholder="건물명, 층수, 호수, 매장명"></label><div class="grid"><label>픽업 담당자<input name="sender" required autocomplete="name"></label><label>연락처<input name="senderPhone" type="tel" required inputmode="tel" pattern="[0-9+() -]{8,20}" placeholder="010-0000-0000"></label></div><label class="schedule-toggle"><input type="checkbox" id="fromScheduled" name="fromScheduled" role="switch" aria-controls="fromSchedule"> 출발 시간 지정</label><fieldset id="fromSchedule" hidden><legend>출발 희망 시간</legend><div class="grid"><label>날짜<input name="fromDate" id="fromDate" type="date"></label><label>시간<select name="fromTime" id="fromTime"></select></label></div><p class="muted">출발 희망 시간은 담당자 확인 후 확정됩니다.</p></fieldset></section>
-<section><h2>도착지</h2><label>주소<input name="to" required placeholder="도로명 또는 지번 주소"></label><button type="button" class="secondary address-search" data-address-search="to">도착지 주소 검색</button><label>상세주소<input name="toDetail" required placeholder="건물명, 층수, 호수, 매장명"></label><div class="grid"><label>받으실 분<input name="receiver" required></label><label>연락처<input name="receiverPhone" type="tel" required inputmode="tel" pattern="[0-9+() -]{8,20}" placeholder="010-0000-0000"></label></div><label class="schedule-toggle"><input type="checkbox" id="toScheduled" name="toScheduled" role="switch" aria-controls="toSchedule"> 도착 시간 지정</label><fieldset id="toSchedule" hidden><legend>도착 희망 시간</legend><div class="grid"><label>날짜<input name="toDate" id="toDate" type="date"></label><label>시간<select name="toTime" id="toTime"></select></label></div><p class="muted">도착 희망 시간은 담당자 확인 후 확정됩니다.</p></fieldset></section>
-<section aria-labelledby="mapHeading"><h2 id="mapHeading">출발지·도착지 지도</h2><button type="button" id="showLocations">지도에서 위치 확인</button><p id="distanceStatus" class="muted" role="status">출발지와 도착지를 선택해 주세요.</p><p id="mapStatus" class="muted map-status" role="status">지도를 불러오고 있어요…</p><div id="orderMap" aria-label="출발지와 도착지 위치 지도"></div><p class="muted">주소를 확인하면 자동차 전용도로를 제외한 최단 경로의 거리를 계산합니다. 최종 요금은 담당자가 확인 후 안내드립니다.</p></section>
-<section><h2>물품</h2><label>물품 종류·수량<input name="item" required placeholder="예: 서류 1봉투, 휴대폰 1대, 의류 2벌"></label><p class="muted">예시를 참고해 물품 종류와 수량을 함께 적어 주세요. 크거나 무거운 물품은 요청사항에 크기와 무게를 적어 주세요.</p></section>
-<section><h2>배송 옵션</h2><label>배송 방식<select name="trip" id="trip"><option value="one">편도</option><option value="round">왕복</option></select></label><label id="returnField" hidden>돌아올 물품<input name="returnItem" id="returnItem" placeholder="물품 종류·수량 또는 없음"></label><label><input type="checkbox" id="hasStops"> 경유지 추가</label><fieldset id="stopsSection" hidden><legend>경유 순서</legend><p class="muted">기본 출발지 → 아래 경유지 순서 → 기본 도착지</p><div id="stops"></div><button type="button" id="addStop" class="secondary">+ 경유지 추가</button></fieldset></section>
-<section><h2>결제·요청사항</h2><label>결제 방법<select name="paymentMethod" id="paymentMethod"><option value="카드">카드</option><option value="현금">현금</option></select></label><fieldset id="cashFields" hidden><legend>현금 결제</legend><label>결제 시점<select name="cashTiming" id="cashTiming"><option value="선불">선불</option><option value="착불">착불</option></select></label></fieldset><label>요청사항<textarea name="notes" id="notes" rows="3" placeholder="도착 시 전화, 취급 주의 등"></textarea></label></section>
-<section><h2>요금 안내</h2><p><strong>예상 요금: 주소·도로 거리 확인 후 안내</strong></p><p class="muted">도로 거리는 지도에서 위치 확인 후 표시됩니다. 과적·급송·대기 등 운송 조건에 따라 요금이 달라질 수 있습니다.</p><p id="chargeInfo" aria-live="polite"></p><details><summary>요금 기준 보기</summary><p>오토바이 관내: 5km까지 8,000원, 초과 km당 1,000원. 관외: km당 1,000원, 최저 8,000원. 거리 반올림, 최종 요금 1,000원 단위 올림.</p><p>왕복: 기본 운행요금 × 2 − 1,000원. 같은 관내 경유 1건당 7,000원, 관외 경유 구간 km당 1,000원. 대기: 각 장소에서 완료된 10분당 3,000원.</p><p>예약: 1시간 초과 시 3,000원 추가, 3시간 이상이면 보증금 10,000원 별도. 야간 20:00~05:00: 모든 추가요금을 포함한 운행요금에 70% 추가. 일반 주문은 접수 시간, 예약은 예약 픽업 시간 기준.</p><p>보증금은 픽업 완료 시 반환합니다. 배정 전 취소 및 기사 취소·배차 실패 시 전액 반환합니다. 기사 배정 후 고객 단순변심 취소 시 기사에게 지급합니다.</p></details></section>
-<button type="submit" style="width:100%">주문 내용 확인하기</button><p class="muted">확인 버튼만으로 주문은 접수되지 않습니다. 다음 화면에서 주문 접수하기를 눌러 주세요.</p></form>
+<section><h2>서비스 종류</h2><label>어떤 서비스를 원하시나요?<select name="serviceType" id="serviceType"><option value="일반 배송">일반 배송</option><option value="구매대행">구매대행</option><option value="서류접수 대행">서류접수 대행</option><option value="소형제품 수리접수 대행">소형제품 수리접수 대행</option></select></label><p id="serviceHint" class="muted" aria-live="polite">서류나 소형 물품을 출발지에서 도착지로 배송합니다.</p><label>배송 방식<select name="trip" id="trip"><option value="one">편도</option><option value="round">왕복</option></select></label><label id="returnField" hidden>돌아올 물품<input name="returnItem" id="returnItem" placeholder="물품 종류·수량 또는 없음"></label><input type="hidden" name="urgent" id="urgent" value="no"><button type="button" id="urgentButton" class="secondary" aria-pressed="false">급송 요청</button><p id="urgentInfo" class="muted" aria-live="polite">빠른 배송이 필요하면 급송 요청을 선택해 주세요.</p></section>
+<section><h2>출발지</h2><label>주소<input name="from" readonly required data-searched-address autocomplete="off" placeholder="주소 검색으로 선택해 주세요"></label><button type="button" class="secondary address-search" data-address-search="from">출발지 주소 검색</button><label>상세주소<input name="fromDetail" required placeholder="건물명, 층수, 호수, 매장명"></label><div class="grid"><label>성명<input name="sender" required autocomplete="name"></label><label>연락처<input name="senderPhone" type="tel" data-phone required inputmode="numeric" maxlength="14" pattern="[0-9-]{9,14}" placeholder="010-0000-0000"></label></div><label class="schedule-toggle"><input type="checkbox" id="fromScheduled" name="fromScheduled" role="switch" aria-controls="fromSchedule"> 출발 시간 지정 <small class="schedule-note">예약배송 시</small></label><fieldset id="fromSchedule" hidden><legend>출발 희망 시간</legend><div class="grid"><label>날짜<input name="fromDate" id="fromDate" type="date"></label><label>시간<select name="fromTime" id="fromTime"></select></label></div><p class="muted">출발 희망 시간은 담당자 확인 후 확정됩니다.</p></fieldset><label class="schedule-toggle"><input type="checkbox" id="pickupExtraEnabled" role="switch" aria-controls="pickupExtraSection" aria-describedby="extraRule"> 추가 픽업지</label><fieldset id="pickupExtraSection" hidden><legend>추가 픽업지</legend><p class="muted">입력한 순서대로 방문합니다.</p><div id="pickupExtras"></div><button type="button" class="secondary" id="addPickupExtra">+ 추가 픽업지 추가</button></fieldset></section>
+<section><h2>도착지</h2><label>주소<input name="to" readonly required data-searched-address autocomplete="off" placeholder="주소 검색으로 선택해 주세요"></label><button type="button" class="secondary address-search" data-address-search="to">도착지 주소 검색</button><label>상세주소<input name="toDetail" required placeholder="건물명, 층수, 호수, 매장명"></label><div class="grid"><label>성명<input name="receiver" required></label><label>연락처<input name="receiverPhone" type="tel" data-phone required inputmode="numeric" maxlength="14" pattern="[0-9-]{9,14}" placeholder="010-0000-0000"></label></div><label class="schedule-toggle"><input type="checkbox" id="toScheduled" name="toScheduled" role="switch" aria-controls="toSchedule"> 도착 시간 지정 <small class="schedule-note">예약배송 시</small></label><fieldset id="toSchedule" hidden><legend>도착 희망 시간</legend><div class="grid"><label>날짜<input name="toDate" id="toDate" type="date"></label><label>시간<select name="toTime" id="toTime"></select></label></div><p class="muted">도착 희망 시간은 담당자 확인 후 확정됩니다.</p></fieldset><label class="schedule-toggle"><input type="checkbox" id="deliveryExtraEnabled" role="switch" aria-controls="deliveryExtraSection" aria-describedby="extraRule"> 추가 도착지</label><fieldset id="deliveryExtraSection" hidden><legend>추가 도착지</legend><p class="muted">입력한 순서대로 방문합니다.</p><div id="deliveryExtras"></div><button type="button" class="secondary" id="addDeliveryExtra">+ 추가 도착지 추가</button></fieldset></section>
+<p id="extraRule" class="muted">추가 픽업지와 추가 도착지는 한쪽만 선택할 수 있습니다.</p><section aria-labelledby="mapHeading"><h2 id="mapHeading">출발지·도착지 지도</h2><button type="button" id="showLocations">지도에서 위치 확인</button><p id="distanceStatus" class="muted" role="status">출발지와 도착지를 선택해 주세요.</p><p id="mapStatus" class="muted map-status" role="status">지도를 불러오고 있어요…</p><div id="orderMap" aria-label="출발지와 도착지 위치 지도"></div><p class="muted">주소를 확인하면 자동차 전용도로를 제외한 최단 경로의 거리를 계산합니다. 최종 요금은 담당자가 확인 후 안내드립니다.</p></section>
+<section><h2>물품</h2><label>물품 종류·수량<input name="item" required placeholder="예: 서류 1봉투, 휴대폰 1대, 의류 2벌"></label><div class="grid"><label>크기<select name="itemSize" id="itemSize" required><option value="" disabled selected>크기를 선택해 주세요</option><option value="소">소</option><option value="중">중</option><option value="대">대</option></select></label><label>무게<select name="itemWeight" id="itemWeight" required><option value="" disabled selected>무게를 선택해 주세요</option><option value="10kg 미만">10kg 미만</option><option value="10kg~20kg">10kg~20kg</option><option value="20kg 초과">20kg 초과</option></select></label></div><p class="muted">예시를 참고해 물품 종류와 수량을 함께 적고, 크기와 무게를 선택해 주세요.</p></section>
+
+<section><h2>결제·특이사항</h2><label>결제 방법<select name="paymentMethod" id="paymentMethod"><option value="카드">카드</option><option value="현금">현금</option></select></label><fieldset id="cashFields" hidden><legend>현금 결제</legend><label>결제 시점<select name="cashTiming" id="cashTiming"><option value="선불">선불</option><option value="착불">착불</option></select></label></fieldset><label>특이사항<textarea name="notes" id="notes" rows="3" placeholder="예: 기사분 신분증 지참, 전화 불가 / 문자로 연락"></textarea></label></section>
+<section><h2>요금 안내</h2><p><strong>예상 요금: 주소·도로 거리 확인 후 안내</strong></p><p class="muted">도로 거리는 지도에서 위치 확인 후 표시됩니다. 과적·급송·대기 등 운송 조건에 따라 요금이 달라질 수 있습니다.</p><p id="chargeInfo" aria-live="polite"></p></section>
+<p id="formError" role="alert" class="muted"></p><button type="submit" style="width:100%">주문 내용 확인하기</button><p class="muted">확인 버튼만으로 주문은 접수되지 않습니다. 다음 화면에서 주문 접수하기를 눌러 주세요.</p></form>
 <section id="review" hidden aria-live="polite"><h2>주문 내용 확인</h2><pre id="summary"></pre><p>내용을 확인하고 <strong>주문 접수하기</strong>를 눌러 주세요. 담당자 확인 후 요금을 안내드립니다.</p><div class="actions"><button id="sms" type="button">주문 접수하기</button><button id="copy" class="secondary" type="button">주문 내용 복사</button><a href="https://open.kakao.com/me/THcompany" target="_blank" rel="noopener">카카오톡 상담</a><button id="edit" class="secondary" type="button">내용 수정</button></div><p id="message" role="status"></p><a href="order.html" id="newOrder" hidden>새 주문 작성</a></section></main><script src="config.js"></script><script>
 (() => {
   'use strict';
@@ -29,7 +29,7 @@
   const hints = {
     '일반 배송': '서류나 소형 물품을 출발지에서 도착지로 배송합니다.',
     '구매대행': '시장·마트 등에서 구매할 물품과 수량, 구매 장소를 적어 주세요.',
-    '서류접수 대행': '우체국 등 접수할 장소와 서류 종류, 접수 방법을 요청사항에 적어 주세요.',
+    '서류접수 대행': '우체국 등 접수할 장소와 서류 종류, 접수 방법을 특이사항에 적어 주세요.',
     '소형제품 수리접수 대행': '제품 종류·수량, 수리 접수 장소와 요청 내용을 적어 주세요.'
   };
   for (const prefix of ['from', 'to']) {
@@ -65,7 +65,7 @@
     const deposit = scheduled('from') && hours >= 3 ? 10000 : 0;
     const charge = valid ? [
       scheduled('from') ? `출발 시간 지정 추가요금 ${fee.toLocaleString()}원 · 보증금 ${deposit.toLocaleString()}원` : '',
-      night(fromTime) ? '야간 70% 할증 적용' : '',
+      night(fromTime) ? '야간 추가요금 적용' : '',
       $('urgent').value === 'yes' ? '급송 추가요금은 담당자 확인 후 안내' : ''
     ].filter(Boolean) : ['출발 날짜와 시간을 확인해 주세요.'];
     $('chargeInfo').textContent = charge.join(' · ') || '최종 요금은 담당자 확인 후 안내드립니다.';
@@ -77,15 +77,9 @@
     $('cashFields').hidden = !cash;
     $('cashTiming').disabled = !cash;
     $('cashTiming').required = cash;
-    $('stopsSection').hidden = !$('hasStops').checked;
-    for (const control of $('stops').querySelectorAll('input,select,button')) control.disabled = !$('hasStops').checked;
-    $('addStop').disabled = $('stops').children.length >= 5;
+    updateExtras();
     $('serviceHint').textContent = hints[$('serviceType').value];
-    $('notes').placeholder = {
-      '구매대행': '예: 구매할 물품, 구매 장소, 구매 요청사항',
-      '서류접수 대행': '예: 접수 장소, 서류 종류, 접수 방법',
-      '소형제품 수리접수 대행': '예: 수리 접수 장소, 제품 증상, 접수 요청사항'
-    }[$('serviceType').value] || '도착 시 전화, 취급 주의 등';
+    $('notes').placeholder = '예: 기사분 신분증 지참, 전화 불가 / 문자로 연락';
   }
   $('urgentButton').onclick = () => {
     const active = $('urgent').value !== 'yes';
@@ -95,26 +89,114 @@
     $('urgentInfo').textContent = active ? '급송을 요청합니다. 가능 여부와 추가요금은 담당자 확인 후 안내드립니다.' : '빠른 배송이 필요하면 급송 요청을 선택해 주세요.';
     update();
   };
-  $('addStop').onclick = () => {
-    if ($('stops').children.length >= 5) return;
+  const extraKinds = ['pickup', 'delivery'];
+  let extraId = 0;
+  function updateExtras() {
+    const pickup = $('pickupExtraEnabled').checked;
+    const delivery = $('deliveryExtraEnabled').checked;
+    $('pickupExtraEnabled').disabled = delivery && !pickup;
+    $('deliveryExtraEnabled').disabled = pickup && !delivery;
+    for (const kind of extraKinds) {
+      const active = $(kind + 'ExtraEnabled').checked;
+      $(kind + 'ExtraSection').hidden = !active;
+      for (const control of $(kind + 'Extras').querySelectorAll('input,button')) control.disabled = !active;
+      $('add' + kind[0].toUpperCase() + kind.slice(1) + 'Extra').disabled = !active || $(kind + 'Extras').children.length >= 5;
+    }
+  }
+  function mainLocation(from) {
+    return { label: from ? '출발지' : '도착지',
+      address: form.querySelector('[name="' + (from ? 'from' : 'to') + '"]'),
+      detail: form.querySelector('[name="' + (from ? 'fromDetail' : 'toDetail') + '"]'),
+      person: form.querySelector('[name="' + (from ? 'sender' : 'receiver') + '"]'),
+      phone: form.querySelector('[name="' + (from ? 'senderPhone' : 'receiverPhone') + '"]') };
+  }
+  function extrasOf(kind) {
+    if (!$(kind + 'ExtraEnabled').checked) return [];
+    return [...$(kind + 'Extras').children].map((box, index) => ({
+      label: (kind === 'pickup' ? '추가 픽업지 ' : '추가 도착지 ') + (index + 1),
+      address: box.querySelector('[data-searched-address]'), detail: box.querySelector('[data-extra-detail]'),
+      person: box.querySelector('[data-extra-person]'), phone: box.querySelector('[data-phone]')
+    }));
+  }
+  function routeLocations() {
+    const from = mainLocation(true), to = mainLocation(false);
+    return [from, ...extrasOf('pickup'), to, ...extrasOf('delivery')];
+  }
+  function validateAddresses() {
+    if ($('pickupExtraEnabled').checked && $('deliveryExtraEnabled').checked) {
+      return { error: '추가 픽업지와 추가 도착지는 한쪽만 선택해 주세요.' };
+    }
+    const locations = routeLocations();
+    if (locations.length > 7) return { error: '추가 장소는 최대 5곳까지 선택해 주세요.' };
+    const missing = locations.find(p => !p.address.value.trim() || p.address.dataset.selectedAddress !== p.address.value.trim());
+    if (missing) return { error: missing.label + ': 주소 검색으로 주소를 선택해 주세요.', input: missing.address };
+    return null;
+  }
+  window.TH_ORDER = { routeLocations, validateAddresses };
+  function addExtra(kind) {
+    if ($(kind + 'Extras').children.length >= 5) return;
+    const id = kind + (++extraId);
+    const label = kind === 'pickup' ? '추가 픽업지' : '추가 도착지';
     const box = document.createElement('fieldset');
     box.className = 'stop';
-    box.innerHTML = '<label>경유 업무<select><option>물품 픽업</option><option>물품 전달</option></select></label><label>주소<input data-stop-address required placeholder="도로명·건물번호 또는 지번 주소"></label><label>상세주소<input data-stop-detail placeholder="건물명, 층수, 호수, 매장명"></label><label>담당자·연락처<input data-stop-contact required></label><button type="button" class="secondary">경유지 삭제</button>';
-    box.querySelector('button').onclick = () => {
+    box.innerHTML = '<legend>' + label + '</legend><label>주소<input name="' + id + '" readonly required data-searched-address autocomplete="off" placeholder="주소 검색으로 선택해 주세요"></label><button type="button" class="secondary address-search" data-address-search="' + id + '">주소 검색</button><label>상세주소<input name="' + id + 'Detail" data-extra-detail placeholder="건물명, 층수, 호수, 매장명"></label><div class="grid"><label>성명<input data-extra-person required></label><label>연락처<input type="tel" data-phone required inputmode="numeric" maxlength="14" pattern="[0-9-]{9,14}" placeholder="010-0000-0000"></label></div><button type="button" class="secondary" data-remove-extra>삭제</button>';
+    box.querySelector('[data-remove-extra]').onclick = () => {
       box.remove();
-      if (!$('stops').children.length) {
-        $('hasStops').checked = false;
-        $('hasStops').dispatchEvent(new Event('change', { bubbles: true }));
+      if (!$(kind + 'Extras').children.length) {
+        $(kind + 'ExtraEnabled').checked = false;
+        $(kind + 'ExtraEnabled').dispatchEvent(new Event('change', { bubbles: true }));
       }
       update();
     };
-    $('stops').append(box);
+    $(kind + 'Extras').append(box);
     update();
-  };
-  $('hasStops').onchange = () => {
-    if ($('hasStops').checked && !$('stops').children.length) $('addStop').click();
-    update();
-  };
+  }
+  for (const kind of extraKinds) {
+    $('add' + kind[0].toUpperCase() + kind.slice(1) + 'Extra').onclick = () => addExtra(kind);
+    $(kind + 'ExtraEnabled').onchange = () => {
+      const opposite = kind === 'pickup' ? 'delivery' : 'pickup';
+      if ($(kind + 'ExtraEnabled').checked && $(opposite + 'ExtraEnabled').checked) {
+        $(kind + 'ExtraEnabled').checked = false;
+      }
+      if ($(kind + 'ExtraEnabled').checked && !$(kind + 'Extras').children.length) addExtra(kind);
+      update();
+    };
+  }
+  function formatPhone(value) {
+    const digits = value.replace(/\D/g, '').slice(0, 12);
+    if (digits.startsWith('02')) {
+      if (digits.length <= 2) return digits;
+      if (digits.length <= 5) return digits.slice(0, 2) + '-' + digits.slice(2);
+      const middle = digits.length === 10 ? 4 : 3;
+      return digits.slice(0, 2) + '-' + digits.slice(2, 2 + middle) + (digits.length > 2 + middle ? '-' + digits.slice(2 + middle) : '');
+    }
+    if (/^(15|16|18)/.test(digits)) return digits.length <= 4 ? digits : digits.slice(0, 4) + '-' + digits.slice(4);
+    const prefix = digits.startsWith('050') && digits.length === 12 ? 4 : 3;
+    if (digits.length <= prefix) return digits;
+    const middle = digits.length >= 11 ? 4 : 3;
+    if (digits.length <= prefix + middle) return digits.slice(0, prefix) + '-' + digits.slice(prefix);
+    return digits.slice(0, prefix) + '-' + digits.slice(prefix, prefix + middle) + '-' + digits.slice(prefix + middle);
+  }
+  form.addEventListener('input', event => {
+    const input = event.target;
+    if (!input.matches('[data-phone]') || event.isComposing) return;
+    const before = input.value;
+    const caret = input.selectionStart;
+    const digitsBefore = caret === null ? null : before.slice(0, caret).replace(/\D/g, '').length;
+    input.value = formatPhone(before);
+    if (digitsBefore !== null && typeof input.setSelectionRange === 'function') {
+      let position = 0, count = 0;
+      while (position < input.value.length && count < digitsBefore) {
+        if (/\d/.test(input.value[position])) count++;
+        position++;
+      }
+      input.setSelectionRange(position, position);
+    }
+    input.setCustomValidity('');
+  });
+  form.addEventListener('compositionend', event => {
+    if (event.target.matches('[data-phone]')) event.target.dispatchEvent(new Event('input', { bubbles: true }));
+  });
   form.addEventListener('change', update);
   function validateTimes(now) {
     for (const prefix of ['from', 'to']) {
@@ -136,7 +218,20 @@
     event.preventDefault();
     update();
     const now = new Date();
+    const addressProblem = validateAddresses();
+    if (addressProblem) {
+      $('formError').textContent = addressProblem.error;
+      if (addressProblem.input) addressProblem.input.focus();
+      return;
+    }
+    for (const input of form.querySelectorAll('[data-phone]')) {
+      if (!input.disabled) {
+        input.value = formatPhone(input.value);
+        input.setCustomValidity(input.value.replace(/\D/g, '').length >= 8 ? '' : '연락처를 숫자로 입력해 주세요.');
+      }
+    }
     if (!validateTimes(now) || !form.reportValidity()) return;
+    $('formError').textContent = '';
     const data = new FormData(form), value = key => String(data.get(key) || '').trim();
     const lines = ['[TH company 오토바이 주문 요청]',
       `작성 시간: ${seoulParts(now)} (한국 시간)`,
@@ -144,17 +239,19 @@
       `급송: ${$('urgent').value === 'yes' ? '요청' : '선택 안 함'}`,
       `출발: ${value('from')} ${value('fromDetail')}`,
       `출발 희망 시간: ${scheduled('from') ? value('fromDate') + ' ' + value('fromTime') : '지정 없음 / 바로 픽업 요청'}`,
-      `픽업 담당자: ${value('sender')} / ${value('senderPhone')}`,
+      `출발지 성명: ${value('sender')} / ${value('senderPhone')}`,
       `도착: ${value('to')} ${value('toDetail')}`,
       `도착 희망 시간: ${scheduled('to') ? value('toDate') + ' ' + value('toTime') : '지정 없음'}`,
-      `받으실 분: ${value('receiver')} / ${value('receiverPhone')}`,
+      `도착지 성명: ${value('receiver')} / ${value('receiverPhone')}`,
       `물품 종류·수량: ${value('item')}`,
+      `크기: ${value('itemSize')} / 무게: ${value('itemWeight')}`,
       `배송: ${value('trip') === 'round' ? '왕복 / 돌아올 물품: ' + value('returnItem') : '편도'}`];
-    if ($('hasStops').checked) [...$('stops').children].forEach((stop, index) => {
-      lines.push(`경유 ${index + 1}: ${stop.querySelector('select').value} / ${stop.querySelector('[data-stop-address]').value.trim()} ${stop.querySelector('[data-stop-detail]').value.trim()} / ${stop.querySelector('[data-stop-contact]').value.trim()}`);
-    });
+    for (const kind of extraKinds) for (const location of extrasOf(kind)) {
+      lines.push(`${location.label}: ${location.address.value} ${location.detail.value} / 성명: ${location.person.value} / 연락처: ${location.phone.value}`);
+    }
+    lines.push('운행 순서: ' + routeLocations().map(p => p.label).join(' → '));
     lines.push(`결제 방법: ${value('paymentMethod')}${value('paymentMethod') === '현금' ? ' / ' + value('cashTiming') : ''}`,
-      `요청사항: ${value('notes') || '없음'}`, '예상 운행요금: 담당자 확인 후 안내',
+      `특이사항: ${value('notes') || '없음'}`, '예상 운행요금: 담당자 확인 후 안내',
       $('chargeInfo').textContent, '담당자 확인 후 접수 및 요금 확정 요청');
     $('summary').textContent = lines.join('\n');
     form.hidden = true;
@@ -208,9 +305,9 @@
   update();
 })();
 
+
 </script>
 <script>
-
 (() => {
   'use strict';
   const status = document.getElementById('mapStatus');
@@ -221,9 +318,9 @@
   const distanceStatus = document.getElementById('distanceStatus');
   let distanceResult = null;
   function journey() {
-    const waypoints = document.getElementById('hasStops').checked
-      ? [...document.querySelectorAll('#stops fieldset')].map(box => box.querySelector('[data-stop-address]')?.value.trim() || '') : [];
-    return { from: inputs[0].value.trim(), to: inputs[1].value.trim(), waypoints,
+    const locations = window.TH_ORDER.routeLocations();
+    return { from: locations[0].address.value.trim(), to: locations[locations.length - 1].address.value.trim(),
+      waypoints: locations.slice(1, -1).map(p => p.address.value.trim()),
       roundTrip: document.getElementById('trip').value === 'round' };
   }
   function fingerprint() { return JSON.stringify(journey()); }
@@ -232,11 +329,17 @@
     distanceStatus.textContent = '주소나 배송 옵션이 바뀌었어요. 지도에서 위치 확인을 다시 눌러주세요.';
   }
   document.getElementById('trip').addEventListener('change', invalidateDistance);
-  document.getElementById('hasStops').addEventListener('change', invalidateDistance);
-  document.getElementById('stops').addEventListener('input', invalidateDistance);
-  document.getElementById('stops').addEventListener('change', invalidateDistance);
-  document.getElementById('addStop').addEventListener('click', invalidateDistance);
-  new MutationObserver(invalidateDistance).observe(document.getElementById('stops'), { childList: true });
+  for (const kind of ['pickup', 'delivery']) {
+    document.getElementById(kind + 'ExtraEnabled').addEventListener('change', invalidateDistance);
+    const extras = document.getElementById(kind + 'Extras');
+    new MutationObserver(invalidateDistance).observe(extras, { childList: true });
+  }
+  document.getElementById('order').addEventListener('input', event => {
+    if (event.target.matches('[data-searched-address]')) {
+      invalidateDistance(); clearMarkers();
+      status.textContent = '주소가 바뀌었어요. 지도에서 위치 확인을 다시 눌러주세요.';
+    }
+  });
   document.getElementById('order').addEventListener('th:review', () => {
     if (distanceResult && distanceResult.fingerprint === fingerprint()) {
       const summary = document.getElementById('summary');
@@ -264,10 +367,6 @@
     labels.forEach(label => label.close());
     markers = []; labels = [];
   }
-  inputs.forEach(input => input.addEventListener('input', () => {
-    invalidateDistance(); clearMarkers();
-    status.textContent = '주소가 바뀌었어요. 지도에서 위치 확인을 다시 눌러주세요.';
-  }));
   const sdk = loadScript('https://dapi.kakao.com/v2/maps/sdk.js?appkey=3de9d55c96ae685b862f0296d08accb3&libraries=services&autoload=false')
     .then(() => new Promise((resolve, reject) => {
       if (!window.kakao?.maps?.load) return reject(new Error('카카오맵 사용 설정과 등록 도메인을 확인해 주세요.'));
@@ -303,6 +402,13 @@
   }
   button.addEventListener('click', async () => {
     const current = ++version;
+    const addressProblem = window.TH_ORDER.validateAddresses();
+    if (addressProblem) {
+      distanceResult = null;
+      distanceStatus.textContent = addressProblem.error;
+      return;
+    }
+    const locations = window.TH_ORDER.routeLocations();
     const request = journey();
     const stamp = fingerprint();
     const addresses = [request.from, ...request.waypoints, request.to];
@@ -318,7 +424,7 @@
     status.textContent = '출발지·도착지 위치를 확인하고 있어요…';
     try {
       await sdk;
-      const points = await Promise.all(addresses.map((address, i) => locate(address, i === 0 ? '출발지' : i === addresses.length - 1 ? '도착지' : '경유지 ' + i)));
+      const points = await Promise.all(addresses.map((address, i) => locate(address, locations[i].label)));
       if (current !== version) return;
       const bounds = new kakao.maps.LatLngBounds();
       points.forEach(point => {
@@ -362,26 +468,31 @@
       }
     } finally { button.disabled = false; }
   });
-  document.querySelectorAll('[data-address-search]').forEach(searchButton => {
-    searchButton.addEventListener('click', async () => {
-      const input = document.querySelector('[name="' + searchButton.dataset.addressSearch + '"]');
-      searchButton.disabled = true;
-      try {
-        await loadScript('https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js');
-        if (!window.daum?.Postcode) throw new Error('주소 검색을 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.');
-        new daum.Postcode({
-          oncomplete(data) {
-            input.value = data.userSelectedType === 'R' ? data.roadAddress : data.jibunAddress;
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-            const detail = document.querySelector('[name="' + searchButton.dataset.addressSearch + 'Detail"]');
-            if (detail) detail.focus();
-            if (inputs.every(field => field.value.trim())) button.click();
-          }
-        }).open();
-      } catch (error) { status.textContent = error.message; }
-      finally { searchButton.disabled = false; }
-    });
+  document.getElementById('order').addEventListener('click', async event => {
+    const searchButton = event.target.closest('[data-address-search]');
+    if (!searchButton || searchButton.disabled) return;
+    const input = document.querySelector('[name="' + searchButton.dataset.addressSearch + '"]');
+    searchButton.disabled = true;
+    try {
+      await loadScript('https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js');
+      if (!window.daum?.Postcode) throw new Error('주소 검색을 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.');
+      new daum.Postcode({
+        oncomplete(data) {
+          if (!input.isConnected || input.disabled) return;
+          const address = data.userSelectedType === 'R' ? data.roadAddress : data.jibunAddress;
+          if (!address) return;
+          input.value = address;
+          input.dataset.selectedAddress = address.trim();
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          document.getElementById('formError').textContent = '';
+          const detail = document.querySelector('[name="' + searchButton.dataset.addressSearch + 'Detail"]');
+          if (detail) detail.focus();
+          if (!window.TH_ORDER.validateAddresses() && !button.disabled) button.click();
+        }
+      }).open();
+    } catch (error) { status.textContent = error.message; }
+    finally { if (searchButton.isConnected) searchButton.disabled = input.disabled; }
   });
 })();
 
