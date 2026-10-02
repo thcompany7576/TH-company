@@ -302,8 +302,18 @@
   };
   async function beep() {
     audio ||= new (window.AudioContext||window.webkitAudioContext)();await audio.resume();
-    const oscillator=audio.createOscillator(),gain=audio.createGain();oscillator.connect(gain);gain.connect(audio.destination);oscillator.frequency.value=880;
-    gain.gain.setValueAtTime(.12,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.4);oscillator.start();oscillator.stop(audio.currentTime+.4);
+    // 세 번 반복하는 두 음 알림. 짧은 진입·종료 구간으로 잡음을 줄인다.
+    const start=audio.currentTime;
+    for(let repeat=0;repeat<3;repeat++)for(let note=0;note<2;note++){
+      const at=start+repeat*1.05+note*.38,duration=.32;
+      const oscillator=audio.createOscillator(),gain=audio.createGain();
+      oscillator.type='triangle';oscillator.frequency.value=note?1046:784;
+      oscillator.connect(gain);gain.connect(audio.destination);
+      gain.gain.setValueAtTime(0,at);gain.gain.linearRampToValueAtTime(.35,at+.025);
+      gain.gain.setValueAtTime(.35,at+duration-.06);gain.gain.linearRampToValueAtTime(0,at+duration);
+      oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};
+      oscillator.start(at);oscillator.stop(at+duration);
+    }
   }
   $('soundToggle').onclick=async()=>{try { if(!soundEnabled)await beep();soundEnabled=!soundEnabled;$('soundToggle').textContent=soundEnabled?'알림 소리 끄기':'알림 소리 켜기'; }catch(e){notice('소리를 재생하지 못했습니다. 기기 음량을 확인해 주세요.');}};
   $('soundTest').onclick=()=>beep().catch(()=>notice('소리를 재생하지 못했습니다.'));
