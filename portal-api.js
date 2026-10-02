@@ -18,7 +18,14 @@
         apikey: cfg.publicKey, 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...options.headers
       }});
       const data = response.status === 204 ? null : await response.json().catch(() => null);
-      if (!response.ok) throw Error(data?.error_description || data?.error || data?.message || '연결을 확인하고 다시 시도해 주세요.');
+      if (!response.ok) {
+        const message = data?.error_description || (typeof data?.error === 'string' ? data.error : '') || data?.message || data?.msg;
+        if (data?.error_code === 'invalid_credentials' || data?.code === 'invalid_credentials' || /invalid login credentials/i.test(message || '')) {
+          throw Error('아이디(이메일) 또는 비밀번호가 맞지 않습니다. 등록된 계정으로 다시 입력해 주세요.');
+        }
+        if (data?.error_code === 'email_not_confirmed' || data?.code === 'email_not_confirmed') throw Error('이메일 확인이 필요한 계정입니다. 사무실에 문의해 주세요.');
+        throw Error(message || '서버 응답을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      }
       return data;
     } catch (error) {
       if (error.name === 'AbortError') throw Error('연결 시간이 초과되었습니다. 같은 요청으로 다시 시도해 주세요.');
