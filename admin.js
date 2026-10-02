@@ -124,7 +124,7 @@
   });
   $('refresh').onclick = () => loadOrders(true); $('more').onclick = () => loadOrders(false); $('search').oninput = renderOrders; $('orderDate').onchange = () => loadOrders(true);
   async function loadStaff() {
-    staffRows = await api.api('/rest/v1/th6_staff?select=*&order=name.asc');
+    staffRows = await api.api('/rest/v1/th6_staff?select=*&deleted_at=is.null&order=name.asc');
     $('clientStaff').replaceChildren(); $('staffList').replaceChildren();
     for (const r of staffRows) {
       const opt = text('option', r.name + (!r.active ? ' (비활성)' : '')); opt.value = r.user_id;
@@ -136,10 +136,19 @@
         card.append(text('p', link.href, 'link-preview')); card.append(button('홍보 링크 복사', async () => { try { await navigator.clipboard.writeText(link.href); notice('영업자 링크를 복사했습니다.'); } catch { notice('표시된 링크를 직접 복사해 주세요.'); } }));
       } else if (r.role !== 'owner') card.append(text('p', new URL('index.html', location.href).href, 'link-preview'));
       card.append(text('p', r.active ? '활성화' : '비활성화', 'portal-note'));
-      if (r.role === 'sales' && !r.is_representative) card.append(button('수정', () => editStaff(r))); $('staffList').append(card);
+      if (r.role === 'sales' && !r.is_representative) {
+        const actions=text('div','','actions');
+        actions.append(button('영업자 수정',()=>editStaff(r)),button('영업자 삭제',async()=>{
+          if(!confirm(r.name+' 영업자를 삭제할까요? 로그인·전용 링크 이용이 중단됩니다. 담당 의뢰자와 주문·고객 문의는 대표님에게 이관됩니다.'))return;
+          try{await api.rpc('th6_remove_sales',{p_staff:r.user_id});await loadStaff();await loadOrders(true);notice(r.name+' 영업자를 삭제하고 담당 업무를 대표님에게 이관했습니다.');}catch(e){notice(e.message);}
+        },'danger'));card.append(actions);
+      } else card.append(text('p','대표·관제 계정은 영업자 수정·삭제 대상이 아닙니다.','portal-note'));
+      $('staffList').append(card);
     }
     $('newControl').hidden = true;
+    if(representative()&&!staffRows.some(r=>r.role==='sales'&&!r.is_representative))$('staffList').append(text('p','아직 등록된 일반 영업자가 없습니다. 영업자를 등록하면 이 목록에 수정·삭제 버튼이 표시됩니다.','portal-note'));
   }
+  $('staffRefresh').onclick=()=>loadStaff().catch(e=>notice(e.message));
   async function loadClients() {
     clients = await api.api('/rest/v1/th6_clients?select=*&order=company.asc'); renderClients();
   }
