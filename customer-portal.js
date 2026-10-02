@@ -41,7 +41,7 @@
     for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
     $('chatLog').replaceChildren(); $('partnerList').replaceChildren();
     $('portalEntry').hidden = false; $('portalContent').hidden = true;
-    $('accountActions').hidden = true; $('requesterProfile').hidden = true; $('guestRequester').hidden = false;
+    $('accountActions').hidden = true; $('requesterProfile').hidden = true; $('requesterCard').hidden = true;
     $('loginId').focus();
   }
   async function enter(nextMode) {
@@ -49,8 +49,7 @@
     $('portalEntry').hidden = true; $('portalContent').hidden = false;
     $('accountActions').hidden = false; $('accountName').textContent = profile ? profile.company + ' · ' + profile.name : '로그인 없이 주문';
     $('partnerManagerButton').hidden = !profile;
-    $('requesterProfile').hidden = !profile; $('guestRequester').hidden = Boolean(profile);
-    for (const input of $('guestRequester').querySelectorAll('input')) { input.required = !profile; input.disabled = Boolean(profile); }
+    $('requesterProfile').hidden = !profile; $('requesterCard').hidden = !profile;
     if (profile) {
       $('profileCompany').textContent = profile.company; $('profileName').textContent = profile.name;
       $('profilePhone').textContent = profile.phone; $('profileAddress').textContent = (profile.address + ' ' + profile.detail).trim() || '등록 주소 없음';
@@ -60,20 +59,22 @@
     thread = savedThreads().find(t => t.account === (profile?.contactId || 'guest:' + sales)) || null;
     renderThreadSelector();
   }
-  function person() {
-    return profile ? { name: profile.name, phone: profile.phone } : {
-      name: $('guestName').value.trim() || $('chatGuestName').value.trim(),
-      phone: $('guestPhone').value.trim() || $('chatGuestPhone').value.trim()
+  function person(forOrder = false) {
+    if (profile) return { name: profile.name, phone: profile.phone };
+    const sender = { name: form.elements.sender.value.trim(), phone: form.elements.senderPhone.value.trim() };
+    return forOrder ? sender : {
+      name: $('chatGuestName').value.trim() || thread?.name || sender.name,
+      phone: $('chatGuestPhone').value.trim() || thread?.phone || sender.phone
     };
   }
   function formatMobile(value) {
     const v = value.replace(/\D/g, '').slice(0,11);
     return v.length<=3?v:v.length<=7?v.slice(0,3)+'-'+v.slice(3):v.slice(0,3)+'-'+v.slice(3,v.length===11?7:6)+'-'+v.slice(v.length===11?7:6);
   }
-  for (const id of ['guestPhone','chatGuestPhone','partner_phone']) $(id).addEventListener('input', () => { $(id).value = formatMobile($(id).value); });
+  for (const id of ['chatGuestPhone','partner_phone']) $(id).addEventListener('input', () => { $(id).value = formatMobile($(id).value); });
   async function ensureThread(forOrder = false) {
-    const who = person();
-    if (!who.name || !/^[0-9-]{9,14}$/.test(who.phone)) throw Error('의뢰자 성명과 연락처를 먼저 입력해 주세요.');
+    const who = person(forOrder);
+    if (!who.name || !/^[0-9-]{9,14}$/.test(who.phone)) throw Error(forOrder ? '출발지 성명과 연락처를 입력해 주세요.' : '문의 성명과 연락처를 입력해 주세요.');
     if (!thread || thread.account !== (profile?.contactId || 'guest:' + sales) || (forOrder && thread.orderId) ||
         (!profile && (thread.name !== who.name || thread.phone !== who.phone))) {
       thread = { id: crypto.randomUUID(), token: randomToken(), account: profile?.contactId || 'guest:' + sales, time: Date.now(), name: who.name, phone: who.phone };
@@ -108,7 +109,7 @@
   }
   async function openChat() {
     $('chatError').textContent = ''; $('chatIdentity').hidden = Boolean(profile) || Boolean(thread);
-    if (!profile) { $('chatGuestName').value = $('guestName').value; $('chatGuestPhone').value = $('guestPhone').value; }
+    if (!profile) { const who = person(true); $('chatGuestName').value = thread?.name || who.name; $('chatGuestPhone').value = thread?.phone || who.phone; }
     if (!$('chatDialog').open) $('chatDialog').showModal();
     if (thread) try { await readChat(); } catch (e) { $('chatError').textContent = e.message; }
     $('chatBody').focus();
@@ -288,7 +289,7 @@
       if (profile) { const fresh = await api.rpc('th6_profile'); if (!fresh) throw Error('계정이 비활성화되었습니다. 사무실에 문의해 주세요.'); profile = fresh; }
       await refreshSettings(); originalSubmit(e);
       if (!$('review').hidden) {
-        const who = person(); $('summary').textContent = '[의뢰자] ' + (profile ? profile.company + ' / ' : '') + who.name + ' / ' + who.phone + '\n\n' + $('summary').textContent;
+        const who = person(true); if (profile) $('summary').textContent = '[의뢰자] ' + profile.company + ' / ' + who.name + ' / ' + who.phone + '\n\n' + $('summary').textContent;
         reviewCards();
       }
     } catch (error) { $('formError').textContent = error.message; }

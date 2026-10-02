@@ -237,7 +237,7 @@
     finally { $('adminPartnerSave').disabled = false; }
   };
   function editStaff(r, control = false) {
-    creatingControl = control;
+    creatingControl = control; $('staffDialogTitle').textContent = control ? '관제 계정 생성' : '영업자 등록 / 수정';
     $('staffId').value = r?.user_id || ''; $('staffName').value = r?.name || ''; $('staffSlug').value = r?.link_slug || '';
     $('staffLogin').value = $('staffPassword').value = ''; $('staffActive').checked = r?.active ?? true;
     $('staffLoginLabel').hidden = $('staffPasswordLabel').hidden = Boolean(r); $('staffLogin').required = $('staffPassword').required = !r;
