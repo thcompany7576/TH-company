@@ -37,7 +37,8 @@
     const local = isLocal(document.querySelector('[name="from"]'), document.querySelector('[name="to"]'));
     if (local === null) return { amount: null };
     const km = Math.round((distance.baseMeters ?? distance.outboundMeters) / 1000);
-    const oneWay = local ? 8000 + Math.max(0, km - 5) * 1000 : 6000 + km * 1000;
+    const outsideBase = Math.max(0, 6000 - Math.max(0, km - 5) * 600);
+    const oneWay = local ? 8000 + Math.max(0, km - 5) * 1000 : outsideBase + km * 1000;
     const roundExtra = distance.roundTrip ? Math.max(10000, oneWay * (oneWay <= 10000 ? 1 : 0.7)) : 0;
     return { amount: oneWay + roundExtra, oneWay, roundExtra };
   }

@@ -92,6 +92,11 @@
     } catch (e) { notice(e.message); }
     finally { if (stamp === generation) $('refresh').disabled = $('more').disabled = false; }
   }
+  function officeOrderText(r) {
+    let body=r.summary;
+    if(r.agreed_fare!==null&&r.agreed_fare!==undefined){body=body.replace(/최종 요금:([^\n]*)/g,'접수 시 예상요금:$1');body+='\n\n[조정 운행요금] '+r.agreed_fare.toLocaleString('ko-KR')+'원\n조정 사유: '+r.fare_reason+'\n관제 확인: '+(r.fare_checked_at?'완료':'대기');}
+    return body+(r.sales_notes?'\n\n[영업자 전달 특이사항]\n'+r.sales_notes:'');
+  }
   function renderOrders() {
     const q = $('search').value.trim().toLowerCase(), root = $('orders'); root.replaceChildren();
     $('count').textContent = labels[status] + ' ' + rows.length + '건 (불러온 목록) · '+(status==='held'?'보류 후 48시간 내 복구 가능':'48시간 보관 · 복구 시 보관 시간 갱신');
@@ -113,8 +118,16 @@
         card.append(grid);
       }
       const details = text('details', ''), summary = text('summary', '전체 주문 내용'), pre = text('pre', r.summary); details.append(summary, pre); card.append(details);
+      const autoFare=r.payload?.quote?.total;
+      if(Number.isFinite(autoFare))card.append(text('p','접수 시 예상 운행요금: '+autoFare.toLocaleString('ko-KR')+'원','portal-note'));
+      const displayFare=r.agreed_fare??autoFare;
+      if(r.agreed_fare!=null){card.append(text('h3',(r.fare_checked_at?'관제 확인 운행요금: ':'조정 운행요금 (관제 확인 대기): ')+r.agreed_fare.toLocaleString('ko-KR')+'원'),text('p','조정 사유: '+r.fare_reason));}
+      if(Number.isFinite(displayFare))card.append(text('p','기사 지급 80%: '+Math.round(displayFare*0.8).toLocaleString('ko-KR')+'원 · 대표 몫 20%: '+(displayFare-Math.round(displayFare*0.8)).toLocaleString('ko-KR')+'원 (별도 보증금 제외)','portal-note'));
       const actions = text('div', '', 'actions');
-      actions.append(button('코리아센터 입력용 내용 복사', async () => { try { await navigator.clipboard.writeText(r.summary+(r.sales_notes?'\n\n[영업자 전달 특이사항]\n'+r.sales_notes:'')); notice('복사했습니다. 코리아센터에 직접 입력해 주세요.'); } catch { notice('복사하지 못했습니다. 전체 주문 내용을 선택해서 복사해 주세요.'); } }));
+      actions.append(button('코리아센터 입력용 내용 복사', async () => { try { await navigator.clipboard.writeText(officeOrderText(r)); notice('복사했습니다. 코리아센터에 직접 입력해 주세요.'); } catch { notice('복사하지 못했습니다. 전체 주문 내용을 선택해서 복사해 주세요.'); } }));
+      if(owner()&&r.status==='approved'&&r.agreed_fare!=null&&!r.fare_checked_at){
+        const check=button('조정 요금 확인 · 배정 승인',async()=>{if(!confirm(r.agreed_fare.toLocaleString('ko-KR')+'원과 조정 사유를 확인했나요? 확인 후 기사 배정이 가능합니다.'))return;check.disabled=true;try{await api.rpc('th6_confirm_fare',{p_id:r.id,p_fare:r.agreed_fare});await loadOrders(true);notice('조정 요금을 확인했습니다. 기사 배정을 진행해 주세요.');}catch(e){notice(e.message);check.disabled=false;}},'');actions.append(check);
+      }
       if (r.thread_id && !owner()) actions.append(button('고객 문의 / 답변', async () => { await selectPage('chat'); await openThread(r.thread_id); }));
       for (const next of owner() ? (r.status==='approved'?['assigned','held']:r.status==='assigned'?['completed','held']:r.status==='held'?['restore']:[]) : (r.status==='pending'?['held']:r.status==='held'&&r.held_from==='pending'?['restore']:[])) {
         const b = button(next === 'restore' ? '다시 진행' : next === 'assigned' ? '기사 배정 완료' : labels[next], async () => {
@@ -122,12 +135,25 @@
           if (!confirm(question)) return; b.disabled = true;
           try { await api.rpc('th6_set_status', { p_id: r.id, p_status: next }); await loadOrders(true); notice('주문을 ' + (next==='restore'?'다시 진행':labels[next]) + ' 처리했습니다.'); }
           catch (e) { notice(e.message); b.disabled = false; }
-        }, next === 'held' ? 'secondary' : next === 'assigned' ? '' : 'secondary'); actions.append(b);
+        }, next === 'held' ? 'secondary' : next === 'assigned' ? '' : 'secondary'); if(next==='assigned'&&r.agreed_fare!=null&&!r.fare_checked_at){b.disabled=true;b.title='조정 요금을 먼저 확인해 주세요.';} actions.append(b);
       }
       if(r.approved_at){card.append(text('p','영업자 승인: '+koreaTime(r.approved_at),'portal-note'));card.append(text('h3','관제 전달 특이사항'),text('p',r.sales_notes||'특이사항 없음'));}
       if(r.status==='pending'&&!owner()){
         const label=text('label','관제 전달 특이사항'),notes=document.createElement('textarea');notes.maxLength=2000;notes.placeholder='관제·기사에게 전달할 내용을 적어 주세요. 없으면 비워 두세요.';label.append(notes);card.append(label);
-        const approve=button('주문 승인 · 관제로 전달',async()=>{if(!confirm('주문 내용과 요청 방식을 확인했나요? 승인하면 관제에 전달됩니다.'))return;approve.disabled=true;try{await api.rpc('th6_approve_request',{p_id:r.id,p_notes:notes.value});await loadOrders(true);notice('승인한 주문을 관제로 전달했습니다.');}catch(e){notice(e.message);approve.disabled=false;}},'');actions.prepend(approve);
+        const adjustment=text('details',''),title=text('summary','예외 지역 · 요금 조정 (필요한 경우)');adjustment.append(title);
+        const enabled=document.createElement('input');enabled.type='checkbox';const toggle=text('label','');toggle.className='inline';toggle.append(enabled,text('span','운행요금 조정'));adjustment.append(toggle);
+        const fields=document.createElement('fieldset');fields.hidden=true;fields.disabled=true;
+        const price=document.createElement('input');price.type='number';price.min='1';price.max='2000000';price.step='1';price.inputMode='numeric';price.required=true;if(Number.isFinite(autoFare))price.value=autoFare;
+        const priceLabel=text('label','고객과 확인한 총 운행요금 (원 · 보증금 제외)');priceLabel.append(price);
+        const reason=document.createElement('textarea');reason.required=true;reason.maxLength=2000;reason.placeholder='예: 외곽 지역, 기사 복귀 거리 등';const reasonLabel=text('label','요금 조정 사유');reasonLabel.append(reason);
+        const consent=document.createElement('input');consent.type='checkbox';consent.required=true;const consentLabel=text('label','');consentLabel.className='inline';consentLabel.append(consent,text('span','고객과 조정 운행요금을 확인했습니다.'));
+        fields.append(priceLabel,reasonLabel,consentLabel);adjustment.append(fields);card.append(adjustment);
+        enabled.onchange=()=>{fields.hidden=fields.disabled=!enabled.checked;};
+        const approve=button('주문 승인 · 관제로 전달',async()=>{
+          if(enabled.checked&&(!price.reportValidity()||!reason.value.trim()||!consent.checked)){notice('조정 요금·사유를 입력하고 고객 확인에 체크해 주세요.');return;}
+          if(!confirm('주문 내용과 요청 방식을 확인했나요? 승인하면 관제에 전달됩니다.'))return;
+          approve.disabled=true;try{await api.rpc('th6_approve_with_fare',{p_id:r.id,p_notes:notes.value,p_fare:enabled.checked?Number(price.value):null,p_reason:enabled.checked?reason.value:'',p_customer_confirmed:enabled.checked&&consent.checked});await loadOrders(true);notice('승인한 주문을 관제로 전달했습니다.');}catch(e){notice(e.message);approve.disabled=false;}
+        },'');actions.prepend(approve);
       }
       card.append(actions); root.append(card);
     }
