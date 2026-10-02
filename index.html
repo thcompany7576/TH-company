@@ -22,7 +22,7 @@ body{margin:0;background:#111;color:#fff;font-family:Arial,"Noto Sans KR",sans-s
 [hidden]{display:none!important}
 .call,.kakao{background:#ffe000;color:#111}
 .share,.copy{background:#2b2b2b;color:#fff;border:1px solid #4b4b4b}
-.phone{font-size:27px;font-weight:950;color:#ffe000;text-align:center;margin:22px 0 5px}
+.share{grid-column:1/-1}.phone{font-size:27px;font-weight:950;color:#ffe000;text-align:center;margin:22px 0 5px}
 .hint{font-size:15px;color:#999;text-align:center;margin:0}
 .footer{text-align:center;color:#aaa;font-size:14px;padding:15px 0 0}
 @media(min-width:560px){.buttons{grid-template-columns:1fr 1fr}}
@@ -39,8 +39,7 @@ body{margin:0;background:#111;color:#fff;font-family:Arial,"Noto Sans KR",sans-s
       <div class="buttons">
         <a class="btn call" href="tel:01021457576">📞 전화하기</a>
         <a class="btn kakao" href="https://open.kakao.com/me/THcompany" target="_blank" rel="noopener">💬 카카오톡 상담</a>
-        <button class="btn share" onclick="shareCard()">📤 명함 공유하기</button>
-        <button class="btn copy" onclick="copyLink()">🔗 온라인명함 링크 복사</button>
+        <button id="shareCardButton" class="btn share" onclick="shareCard()">📤 명함 공유하기</button>
       </div>
       <div class="phone">010-2145-7576</div>
       <p class="hint">전화 또는 카카오톡 버튼을 눌러 바로 문의하실 수 있습니다.</p>
@@ -50,10 +49,13 @@ body{margin:0;background:#111;color:#fff;font-family:Arial,"Noto Sans KR",sans-s
 </div>
 <script>
 const CARD_URL = location.href;
+const shareButton=document.getElementById('shareCardButton');
+const shareData={title:"TH company 온라인명함",text:"TH company | 퀵서비스·배송·운송 문의",url:CARD_URL};
+const nativeShare=typeof navigator.share==='function'&&(!navigator.canShare||navigator.canShare(shareData));
+if(!nativeShare)shareButton.textContent='🔗 명함 링크 복사';
 async function shareCard(){
-  const data={title:"TH company 온라인명함",text:"TH company | 퀵서비스·배송·운송 문의",url:CARD_URL};
-  if(navigator.share){try{await navigator.share(data)}catch(e){}}
-  else{await copyLink();alert("온라인명함 링크를 복사했습니다.");}
+  if(nativeShare){try{await navigator.share(shareData)}catch(e){if(e.name!=='AbortError')await copyLink();}}
+  else await copyLink();
 }
 async function copyLink(){
   try{await navigator.clipboard.writeText(CARD_URL);alert("온라인명함 링크가 복사되었습니다.")}
