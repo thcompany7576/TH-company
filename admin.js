@@ -16,10 +16,22 @@
   const clientManager = () => representative() || staff?.role === 'sales';
   const koreaTime = value => new Date(value).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
   async function accountAction(args) { return api.api('/functions/v1/manage-client-account', { method: 'POST', body: JSON.stringify(args) }); }
+  function showOwnCard() {
+    const enabled=staff?.active&&staff.role==='sales';$('ownCard').hidden=!enabled;
+    if(!enabled){$('ownCardLink').removeAttribute('href');$('ownCardLink').textContent='';return;}
+    const link=new URL('index.html',location.href);if(staff.link_slug)link.searchParams.set('sales',staff.link_slug);
+    $('ownCardTitle').textContent=staff.name+'님의 온라인명함';$('ownCardLink').href=link.href;$('ownCardLink').textContent=link.href;
+  }
+  $('ownCardCopy').onclick=async()=>{
+    if(!staff?.active||staff.role!=='sales')return;
+    try{await navigator.clipboard.writeText($('ownCardLink').href);$('ownCardNotice').textContent='명함 링크를 복사했습니다.';}
+    catch{$('ownCardNotice').textContent='아래 링크를 선택해서 복사해 주세요.';const selection=getSelection(),range=document.createRange();range.selectNodeContents($('ownCardLink'));selection.removeAllRanges();selection.addRange(range);}
+  };
   async function enter() {
     const list = await api.api('/rest/v1/th6_staff?select=*&user_id=eq.' + api.session.user.id);
     staff = list[0]; if (!staff?.active) { await api.logout(); throw Error('관리 권한이 없거나 비활성화된 계정입니다.'); }
     $('adminTitle').textContent = 'TH company-' + (owner() ? '관제' : staff.name);
+    $('ownCardNotice').textContent='';showOwnCard();
     status = owner() ? 'approved' : 'pending';
     document.querySelector('[data-page=chat]').hidden = owner();
     document.querySelectorAll('[data-status]').forEach(b=>{b.hidden=owner()&&b.dataset.status==='pending';b.className=b.dataset.status===status?'':'secondary';b.setAttribute('aria-pressed',String(b.dataset.status===status));});
@@ -42,7 +54,7 @@
   $('logout').onclick = async () => { await api.logout(); location.reload(); };
   window.addEventListener('th:session', () => {
     if (!api.session && staff) {
-      window.TH_DISPATCH.reset(); staff = null; $('dashboard').hidden = true; $('login').hidden = false; $('logout').hidden = true;
+      window.TH_DISPATCH.reset(); staff = null; showOwnCard(); $('dashboard').hidden = true; $('login').hidden = false; $('logout').hidden = true;
       $('adminTitle').textContent = 'TH company';
       for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
       $('orders').replaceChildren(); $('clientList').replaceChildren(); $('adminChatLog').replaceChildren(); $('threadList').replaceChildren();
