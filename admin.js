@@ -122,7 +122,7 @@
       if(Number.isFinite(autoFare))card.append(text('p','접수 시 예상 운행요금: '+autoFare.toLocaleString('ko-KR')+'원','portal-note'));
       const displayFare=r.agreed_fare??autoFare;
       if(r.agreed_fare!=null){card.append(text('h3',(r.fare_checked_at?'관제 확인 운행요금: ':'조정 운행요금 (관제 확인 대기): ')+r.agreed_fare.toLocaleString('ko-KR')+'원'),text('p','조정 사유: '+r.fare_reason));}
-      if(Number.isFinite(displayFare))card.append(text('p','기사 지급 80%: '+Math.round(displayFare*0.8).toLocaleString('ko-KR')+'원 · 대표 몫 20%: '+(displayFare-Math.round(displayFare*0.8)).toLocaleString('ko-KR')+'원 (별도 보증금 제외)','portal-note'));
+      if(!owner()&&r.staff_id===staff.user_id&&Number.isFinite(displayFare))card.append(text('p',(r.agreed_fare!=null&&r.fare_checked_at||r.status==='assigned'||r.status==='completed'?'내 수익':'내 예상 수익')+': '+Math.round(displayFare*0.04).toLocaleString('ko-KR')+'원 (영업자 4% · 별도 보증금 제외)','portal-note'));
       const actions = text('div', '', 'actions');
       actions.append(button('코리아센터 입력용 내용 복사', async () => { try { await navigator.clipboard.writeText(officeOrderText(r)); notice('복사했습니다. 코리아센터에 직접 입력해 주세요.'); } catch { notice('복사하지 못했습니다. 전체 주문 내용을 선택해서 복사해 주세요.'); } }));
       if(owner()&&r.status==='approved'&&r.agreed_fare!=null&&!r.fare_checked_at){
