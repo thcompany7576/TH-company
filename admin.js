@@ -28,6 +28,7 @@
     document.querySelectorAll('[data-representative-only]').forEach(e => e.hidden = !representative());
     document.querySelector('[data-page=clients]').hidden = !clientManager();
     document.querySelectorAll('[data-client-manager-only]').forEach(e => e.hidden = !clientManager());
+    await window.TH_DISPATCH.init(staff,async()=>{notice('새 영업자·관제 메시지가 도착했습니다.');if(soundEnabled)await beep();});
     await loadStaff(); await loadOrders(true); await loadThreads(); baseline = false; pollCursor = null; seenOrders.clear(); seenThreads.clear(); await poll();
   }
   $('loginForm').onsubmit = async e => {
@@ -41,7 +42,7 @@
   $('logout').onclick = async () => { await api.logout(); location.reload(); };
   window.addEventListener('th:session', () => {
     if (!api.session && staff) {
-      staff = null; $('dashboard').hidden = true; $('login').hidden = false; $('logout').hidden = true;
+      window.TH_DISPATCH.reset(); staff = null; $('dashboard').hidden = true; $('login').hidden = false; $('logout').hidden = true;
       $('adminTitle').textContent = 'TH company';
       for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
       $('orders').replaceChildren(); $('clientList').replaceChildren(); $('adminChatLog').replaceChildren(); $('threadList').replaceChildren();
@@ -50,8 +51,9 @@
   async function selectPage(value) {
     page = value;
     for (const b of document.querySelectorAll('[data-page]')) { const selected = b.dataset.page === page; if (selected) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
-    for (const value of ['orders', 'clients', 'chat', 'settings', 'staff']) $('page-' + value).hidden = value !== page;
+    for (const value of ['orders', 'clients', 'chat', 'dispatch', 'settings', 'staff']) $('page-' + value).hidden = value !== page;
     try {
+      await window.TH_DISPATCH.show(page === 'dispatch');
       if (page === 'orders') await loadOrders(true);
       if (page === 'clients') await loadClients();
       if (page === 'chat') await loadThreads();
@@ -337,6 +339,7 @@
   async function poll() {
     if(!staff||document.hidden||polling)return;polling=true;
     try {
+      await window.TH_DISPATCH.poll();
       const result=await api.rpc('th6_admin_events',{p_since:pollCursor});
       const orders=result.orders||[],incoming=result.threads||[];
       const newOrder=baseline&&orders.some(o=>!seenOrders.has(o.id));
