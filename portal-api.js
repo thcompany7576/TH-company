@@ -3,10 +3,18 @@
   const cfg = window.TH_CONFIG || {};
   const surface = document.documentElement.dataset.surface || 'customer';
   const storageKey = 'th6:session:' + surface;
+  const separateWindows = surface === 'admin';
   let session = null, refreshing = null, epoch = 0, remembered = true;
   const event = () => window.dispatchEvent(new CustomEvent('th:session', { detail: session }));
   const store = () => {
-    try { (remembered ? localStorage : sessionStorage).setItem(storageKey, JSON.stringify(session)); } catch {}
+    try {
+      if (separateWindows) {
+        sessionStorage.setItem(storageKey, JSON.stringify(session));
+        sessionStorage.setItem(storageKey + ':remember', String(remembered));
+      }
+      if (remembered) localStorage.setItem(storageKey, JSON.stringify(session));
+      else sessionStorage.setItem(storageKey, JSON.stringify(session));
+    } catch {}
   };
   const configured = () => /^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(cfg.url || '') && Boolean(cfg.publicKey);
   async function raw(path, options = {}, token) {
@@ -33,8 +41,13 @@
     } finally { clearTimeout(timer); }
   }
   function clear() {
+    const old = session;
     epoch++; session = null;
-    try { localStorage.removeItem(storageKey); sessionStorage.removeItem(storageKey); } catch {}
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
+      if (!separateWindows || (old && saved?.refresh_token === old.refresh_token)) localStorage.removeItem(storageKey);
+      sessionStorage.removeItem(storageKey); sessionStorage.removeItem(storageKey + ':remember');
+    } catch {}
     event();
   }
   async function ensure() {
@@ -62,17 +75,19 @@
   }
   async function logout() {
     const old = session; clear();
-    if (old) await raw('/auth/v1/logout', { method: 'POST' }, old.access_token).catch(() => {});
+    if (old) await raw('/auth/v1/logout?scope=local', { method: 'POST' }, old.access_token).catch(() => {});
   }
   async function restore() {
     try {
       const local = localStorage.getItem(storageKey), temp = sessionStorage.getItem(storageKey);
-      remembered = Boolean(local); const saved = JSON.parse(local || temp || 'null');
+      remembered = separateWindows && temp ? sessionStorage.getItem(storageKey + ':remember') === 'true' : Boolean(local);
+      const saved = JSON.parse((separateWindows ? temp || local : local || temp) || 'null');
       if (saved && typeof saved.access_token === 'string' && typeof saved.refresh_token === 'string' && Number.isFinite(saved.expires_at)) session = saved;
       await ensure();
+      if (separateWindows && session) store();
     } catch { clear(); }
     return session;
   }
   window.TH_API = { api, rpc, login, logout, restore, configured, get session() { return session; } };
-  window.addEventListener('storage', e => { if (e.key === storageKey && e.newValue === null) clear(); });
+  window.addEventListener('storage', e => { if (!separateWindows && e.key === storageKey && e.newValue === null) clear(); });
 })();
