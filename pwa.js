@@ -13,7 +13,10 @@
   window.addEventListener('appinstalled', () => { buttons.forEach(b => b.hidden = true); hints.forEach(h => h.textContent = '홈 화면에 설치했습니다.'); });
   if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.matchMedia('(display-mode: standalone)').matches) hints.forEach(h => h.textContent = 'Safari 공유 메뉴 → 홈 화면에 추가로 설치할 수 있습니다.');
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    navigator.serviceWorker.register('sw.js').catch(() => { hints.forEach(h => h.textContent = '설치 기능을 준비하지 못했습니다. 브라우저에서 계속 이용할 수 있습니다.'); });
+    navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
+      reg.update().catch(()=>{});
+      document.addEventListener('visibilitychange',()=>{if(!document.hidden)reg.update().catch(()=>{});});
+    }).catch(() => { hints.forEach(h => h.textContent = '설치 기능을 준비하지 못했습니다. 브라우저에서 계속 이용할 수 있습니다.'); });
   }
   const banner = document.createElement('div'); banner.className = 'offline-banner'; banner.hidden = navigator.onLine; banner.textContent = '인터넷 연결이 끊겼습니다. 로그인·주문 접수·문의 전송은 연결 후 이용해 주세요.'; document.body.prepend(banner);
   window.addEventListener('offline', () => banner.hidden = false); window.addEventListener('online', () => banner.hidden = true);
