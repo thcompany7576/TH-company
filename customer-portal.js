@@ -1,0 +1,332 @@
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id), api = window.TH_API;
+  const form = $('order');
+  const sales = new URLSearchParams(location.search).get('sales') || '';
+  let profile = null, partners = [], mode = null, settingsReady = false, thread = null, polling = false;
+  let pendingMessage = null, orderAttempt = null, loadingSettings = null, unread = 0;
+  const memoryKey = 'th6:threads';
+  const text = (tag, value, className) => { const el = document.createElement(tag); el.textContent = value; if (className) el.className = className; return el; };
+  function savedThreads() {
+    try { return JSON.parse(localStorage.getItem(memoryKey) || '[]').filter(t => t?.id && /^[a-f0-9]{64}$/.test(t.token) && t.time > Date.now() - 48 * 3600000); } catch { return []; }
+  }
+  function rememberThread() {
+    const rows = savedThreads().filter(t => t.id !== thread.id);
+    try { localStorage.setItem(memoryKey, JSON.stringify([thread, ...rows].slice(0, 15))); } catch {
+      $('chatError').textContent = '이 기기에서는 문의 확인정보를 보관할 수 없습니다. 페이지를 닫기 전에 답변을 확인해 주세요.';
+    }
+    renderThreadSelector();
+  }
+  function randomToken() { return [...crypto.getRandomValues(new Uint8Array(32))].map(n => n.toString(16).padStart(2, '0')).join(''); }
+  async function refreshSettings() {
+    if (loadingSettings) return loadingSettings;
+    loadingSettings = (async () => {
+      const settings = await api.rpc('th6_public_settings');
+      if (typeof settings?.nightEnabled !== 'boolean') throw Error('요금 설정을 불러오지 못했습니다.');
+      const changed = window.TH_PORTAL.nightEnabled !== settings.nightEnabled;
+      window.TH_PORTAL.nightEnabled = settings.nightEnabled; settingsReady = true;
+      for (const control of document.querySelectorAll('[data-choice="serviceType"]')) {
+        if (control.value === '일반 배송') continue;
+        control.disabled = !settings.services?.[control.value];
+        const note = control.parentElement.querySelector('[data-service-state]');
+        if (note) note.textContent = control.disabled ? '서비스 준비중' : '';
+      }
+      if (changed) { form.dispatchEvent(new Event('change', { bubbles: true })); if (!$('review').hidden) window.TH_FARE.renderReview(window.TH_MAP.getDistance()); }
+      return settings;
+    })();
+    try { return await loadingSettings; } finally { loadingSettings = null; }
+  }
+  function showEntry() {
+    mode = null; profile = null; partners = []; thread = null;
+    for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
+    $('chatLog').replaceChildren(); $('partnerList').replaceChildren();
+    $('portalEntry').hidden = false; $('portalContent').hidden = true;
+    $('accountActions').hidden = true; $('requesterProfile').hidden = true; $('guestRequester').hidden = false;
+    $('loginId').focus();
+  }
+  async function enter(nextMode) {
+    await refreshSettings(); mode = nextMode;
+    $('portalEntry').hidden = true; $('portalContent').hidden = false;
+    $('accountActions').hidden = false; $('accountName').textContent = profile ? profile.company + ' · ' + profile.name : '로그인 없이 주문';
+    $('partnerManagerButton').hidden = !profile;
+    $('requesterProfile').hidden = !profile; $('guestRequester').hidden = Boolean(profile);
+    for (const input of $('guestRequester').querySelectorAll('input')) { input.required = !profile; input.disabled = Boolean(profile); }
+    if (profile) {
+      $('profileCompany').textContent = profile.company; $('profileName').textContent = profile.name;
+      $('profilePhone').textContent = profile.phone; $('profileAddress').textContent = (profile.address + ' ' + profile.detail).trim() || '등록 주소 없음';
+      await loadPartners();
+    }
+    document.querySelectorAll('.partner-tools').forEach(el => el.hidden = !profile);
+    thread = savedThreads().find(t => t.account === (profile?.contactId || 'guest:' + sales)) || null;
+    renderThreadSelector();
+  }
+  function person() {
+    return profile ? { name: profile.name, phone: profile.phone } : {
+      name: $('guestName').value.trim() || $('chatGuestName').value.trim(),
+      phone: $('guestPhone').value.trim() || $('chatGuestPhone').value.trim()
+    };
+  }
+  function formatMobile(value) {
+    const v = value.replace(/\D/g, '').slice(0,11);
+    return v.length<=3?v:v.length<=7?v.slice(0,3)+'-'+v.slice(3):v.slice(0,3)+'-'+v.slice(3,v.length===11?7:6)+'-'+v.slice(v.length===11?7:6);
+  }
+  for (const id of ['guestPhone','chatGuestPhone','partner_phone']) $(id).addEventListener('input', () => { $(id).value = formatMobile($(id).value); });
+  async function ensureThread(forOrder = false) {
+    const who = person();
+    if (!who.name || !/^[0-9-]{9,14}$/.test(who.phone)) throw Error('의뢰자 성명과 연락처를 먼저 입력해 주세요.');
+    if (!thread || thread.account !== (profile?.contactId || 'guest:' + sales) || (forOrder && thread.orderId) ||
+        (!profile && (thread.name !== who.name || thread.phone !== who.phone))) {
+      thread = { id: crypto.randomUUID(), token: randomToken(), account: profile?.contactId || 'guest:' + sales, time: Date.now(), name: who.name, phone: who.phone };
+      rememberThread();
+    }
+    await api.rpc('th6_open_thread', { p_id: thread.id, p_token: thread.token, p_name: who.name, p_phone: who.phone, p_sales: sales || null });
+    return thread;
+  }
+  async function readChat() {
+    if (!thread) return;
+    const stamp = thread.id;
+    const data = await api.rpc('th6_read_thread', { p_thread: thread.id, p_token: thread.token });
+    if (stamp !== thread?.id) return;
+    if (data.orderId) { thread.orderId = data.orderId; rememberThread(); }
+    const log = $('chatLog'), atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+    log.replaceChildren();
+    for (const message of data.messages || []) {
+      const bubble = text('div', message.body, 'chat-bubble ' + message.sender);
+      bubble.append(text('time', new Date(message.created_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })));
+      log.append(bubble);
+    }
+    if (!log.children.length) log.append(text('p', '문의사항을 남겨 주세요. 사무실에서 확인 후 답변합니다.', 'muted'));
+    if (atBottom) log.scrollTop = log.scrollHeight;
+    $('chatStatus').textContent = data.orderId ? '주문 ' + data.orderId.slice(0, 8) + ' · ' + ({ pending: '사무실 확인 중', assigned: '기사 배정 완료', completed: '완료', cancelled: '취소' }[data.status] || '문의') : '사무실 문의';
+    unread = 0; $('chatUnread').hidden = true;
+  }
+  function renderThreadSelector() {
+    const select = $('chatThread'); select.replaceChildren();
+    const rows = savedThreads().filter(t => t.account === (profile?.contactId || 'guest:' + sales));
+    for (const t of rows) { const opt = text('option', (t.orderId ? '주문 ' + t.orderId.slice(0, 8) : '문의') + ' · ' + new Date(t.time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })); opt.value = t.id; select.append(opt); }
+    select.hidden = rows.length < 2; if (thread) select.value = thread.id;
+  }
+  async function openChat() {
+    $('chatError').textContent = ''; $('chatIdentity').hidden = Boolean(profile) || Boolean(thread);
+    if (!profile) { $('chatGuestName').value = $('guestName').value; $('chatGuestPhone').value = $('guestPhone').value; }
+    if (!$('chatDialog').open) $('chatDialog').showModal();
+    if (thread) try { await readChat(); } catch (e) { $('chatError').textContent = e.message; }
+    $('chatBody').focus();
+  }
+  $('chatClose').onclick = () => $('chatDialog').close();
+  $('chatOpen').onclick = openChat;
+  document.querySelectorAll('[data-open-chat]').forEach(b => b.onclick = openChat);
+  $('chatThread').onchange = async () => { thread = savedThreads().find(t => t.id === $('chatThread').value) || null; try { await readChat(); } catch (e) { $('chatError').textContent = e.message; } };
+  $('chatNew').onclick = () => { thread = null; $('chatLog').replaceChildren(); $('chatStatus').textContent = '새 문의'; $('chatIdentity').hidden = Boolean(profile); $('chatBody').focus(); };
+  $('chatForm').onsubmit = async e => {
+    e.preventDefault(); if (!$('chatBody').value.trim()) return;
+    $('chatSend').disabled = true; $('chatError').textContent = '';
+    try {
+      const t = await ensureThread();
+      const body = $('chatBody').value.trim();
+      if (!pendingMessage || pendingMessage.body !== body || pendingMessage.thread !== t.id) pendingMessage = { id: crypto.randomUUID(), body, thread: t.id };
+      await api.rpc('th6_send_message', { p_thread: t.id, p_token: t.token, p_body: body, p_message: pendingMessage.id });
+      pendingMessage = null; $('chatBody').value = ''; $('chatIdentity').hidden = true; await readChat();
+    } catch (e) { $('chatError').textContent = e.message; }
+    finally { $('chatSend').disabled = false; }
+  };
+  $('customerLogin').onsubmit = async e => {
+    e.preventDefault(); $('customerLoginButton').disabled = true; $('entryError').textContent = '';
+    try {
+      const id = $('loginId').value.trim().toLowerCase();
+      if (!/^[a-z0-9_]{4,32}$/.test(id)) throw Error('사무실에서 안내받은 아이디를 입력해 주세요.');
+      await api.login(id + '@login.th-company.invalid', $('loginPassword').value, $('customerRemember').checked);
+      profile = await api.rpc('th6_profile');
+      if (!profile) { await api.logout(); throw Error('사용 가능한 등록 고객 계정이 아닙니다. 사무실에 문의해 주세요.'); }
+      $('loginPassword').value = ''; await enter('member');
+    } catch (e) { $('entryError').textContent = e.message; }
+    finally { $('customerLoginButton').disabled = false; }
+  };
+  $('guestOrderButton').onclick = async () => {
+    $('entryError').textContent = ''; $('guestOrderButton').disabled = true;
+    try { await api.logout(); profile = null; await enter('guest'); }
+    catch (e) { $('entryError').textContent = e.message; }
+    finally { $('guestOrderButton').disabled = false; }
+  };
+  $('customerLogout').onclick = async () => {
+    await api.logout(); location.reload();
+  };
+  async function loadPartners() {
+    if (!profile) return;
+    partners = await api.api('/rest/v1/th6_partners?select=*&client_id=eq.' + profile.clientId + '&order=title.asc');
+    for (const select of document.querySelectorAll('[data-partner-select]')) {
+      const value = select.value; select.replaceChildren(); const blank = text('option', '저장한 거래처 선택'); blank.value = ''; select.append(blank);
+      for (const p of partners) { const opt = text('option', p.title); opt.value = p.id; select.append(opt); }
+      select.value = value;
+    }
+    renderPartners();
+  }
+  function fillLocation(prefix, location) {
+    const from = prefix === 'from', address = form.elements[prefix];
+    address.value = location.address; for (const key of ['selectedAddress', 'areaCode', 'township', 'county']) delete address.dataset[key];
+    Object.assign(address.dataset, location.address_meta || location.addressMeta || {}); address.dataset.selectedAddress = location.address;
+    form.elements[prefix + 'Detail'].value = location.detail || '';
+    form.elements[from ? 'sender' : 'receiver'].value = location.person || location.name || '';
+    form.elements[from ? 'senderPhone' : 'receiverPhone'].value = location.phone || '';
+    address.dispatchEvent(new Event('input', { bubbles: true })); address.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  document.querySelectorAll('[data-partner-select]').forEach(select => select.onchange = () => {
+    const selected = partners.find(p => p.id === select.value); if (selected) fillLocation(select.dataset.partnerSelect, selected);
+  });
+  document.querySelectorAll('[data-same-profile]').forEach(check => check.onchange = () => {
+    if (!check.checked || !profile) return;
+    if (!profile.address) { check.checked = false; $('formError').textContent = '사무실에 의뢰자 주소 등록을 요청해 주세요.'; return; }
+    fillLocation(check.dataset.sameProfile, profile);
+  });
+  document.querySelectorAll('[data-save-partner]').forEach(button => button.onclick = async () => {
+    const prefix = button.dataset.savePartner, from = prefix === 'from', address = form.elements[prefix];
+    if (!profile || !address.value || address.dataset.selectedAddress !== address.value.trim()) { $('formError').textContent = '주소를 검색해서 선택해 주세요.'; return; }
+    const title = prompt('거래처 이름을 입력해 주세요.'); if (!title?.trim()) return;
+    button.disabled = true;
+    try {
+      await api.api('/rest/v1/th6_partners', { method: 'POST', body: JSON.stringify({ client_id: profile.clientId, title: title.trim(),
+        address: address.value, detail: form.elements[prefix + 'Detail'].value, person: form.elements[from ? 'sender' : 'receiver'].value,
+        phone: form.elements[from ? 'senderPhone' : 'receiverPhone'].value, address_meta: addressMeta(address) }) });
+      await loadPartners(); $('formError').textContent = '거래처에 저장했습니다.';
+    } catch (e) { $('formError').textContent = e.message; }
+    finally { button.disabled = false; }
+  });
+  function addressMeta(input) { return Object.fromEntries(['areaCode', 'township', 'county'].map(k => [k, input.dataset[k] || ''])); }
+  function renderPartners() {
+    const root = $('partnerList'); root.replaceChildren();
+    for (const p of partners) {
+      const card = text('div', '', 'partner-card'); card.append(text('strong', p.title), text('p', p.address + ' ' + p.detail), text('p', p.person + ' · ' + p.phone));
+      const actions = text('div', '', 'actions'), edit = text('button', '수정', 'secondary'), remove = text('button', '삭제', 'secondary');
+      edit.type = remove.type = 'button'; edit.onclick = () => editPartner(p);
+      remove.onclick = async () => {
+        if (!confirm(p.title + ' 거래처를 삭제할까요?')) return; remove.disabled = true;
+        try { await api.api('/rest/v1/th6_partners?id=eq.' + p.id, { method: 'DELETE' }); await loadPartners(); }
+        catch (e) { $('partnerError').textContent = e.message; remove.disabled = false; }
+      };
+      actions.append(edit, remove); card.append(actions); root.append(card);
+    }
+    if (!partners.length) root.append(text('p', '저장한 거래처가 없습니다. 출발지·도착지를 입력하고 거래처에 저장할 수 있습니다.', 'muted'));
+  }
+  let editingPartner = null;
+  function editPartner(p) {
+    editingPartner = p || { id: null }; $('partnerEditor').hidden = false;
+    for (const key of ['title', 'address', 'detail', 'person', 'phone']) $('partner_' + key).value = p?.[key] || '';
+    $('partner_address').dataset.meta = JSON.stringify(p?.address_meta || {});
+    $('partner_title').focus();
+  }
+  $('partnerManagerButton').onclick = async () => { $('partnerError').textContent = ''; $('partnerEditor').hidden = true; $('partnerDialog').showModal(); try { await loadPartners(); } catch (e) { $('partnerError').textContent = e.message; } };
+  $('partnerClose').onclick = () => $('partnerDialog').close();
+  $('partnerAdd').onclick = () => editPartner(null);
+  $('partnerEditorCancel').onclick = () => $('partnerEditor').hidden = true;
+  $('partner_address').onclick = async () => {
+    try { const chosen = await window.TH_ADDRESS.pick(); if (!chosen) return; $('partner_address').value = chosen.address; $('partner_address').dataset.meta = JSON.stringify(chosen.meta); }
+    catch (e) { $('partnerError').textContent = e.message; }
+  };
+  $('partnerEditor').onsubmit = async e => {
+    e.preventDefault(); $('partnerSave').disabled = true;
+    try {
+      const values = Object.fromEntries(['title', 'address', 'detail', 'person', 'phone'].map(k => [k, $('partner_' + k).value.trim()]));
+      if (!values.address) throw Error('주소를 검색해서 선택해 주세요.');
+      await api.api('/rest/v1/th6_partners' + (editingPartner.id ? '?id=eq.' + editingPartner.id : ''), { method: editingPartner.id ? 'PATCH' : 'POST',
+        body: JSON.stringify({ ...values, client_id: profile.clientId, address_meta: JSON.parse($('partner_address').dataset.meta || '{}') }) });
+      $('partnerEditor').hidden = true; await loadPartners();
+    } catch (e) { $('partnerError').textContent = e.message; }
+    finally { $('partnerSave').disabled = false; }
+  };
+  function reviewCards(targetForm = form, targetDoc = document) {
+    const summary = targetDoc.getElementById('summary');
+    let cards = targetDoc.getElementById('reviewCards');
+    if (!cards) { cards = targetDoc.createElement('div'); cards.id = 'reviewCards'; summary.before(cards); }
+    cards.replaceChildren();
+    const grid = text('div', '', 'review-locations');
+    for (const prefix of ['from','to']) {
+      const from = prefix === 'from', card = text('div', '', 'review-location');
+      card.append(text('h3', from ? '출발지' : '도착지'));
+      for (const field of [prefix, prefix + 'Detail']) { const v = targetForm.elements[field]?.value; if (v) card.append(text('p', v)); }
+      card.append(text('p', [targetForm.elements[from ? 'sender' : 'receiver']?.value, targetForm.elements[from ? 'senderPhone' : 'receiverPhone']?.value].filter(Boolean).join(' · ')));
+      if (targetDoc.getElementById(prefix + 'Scheduled')?.checked) card.append(text('p', targetDoc.getElementById(prefix + 'Date').value + ' ' + targetDoc.getElementById(prefix + 'Time').value));
+      grid.append(card);
+    }
+    cards.append(grid);
+    const details = text('div', '', 'review-details');
+    const omitted = /^(출발:|도착:|출발지 성명:|도착지 성명:|출발 희망 시간:|도착 희망 시간:)/;
+    for (const line of summary.textContent.split('\n').filter(s => s && !omitted.test(s))) details.append(text('p', line));
+    cards.append(details); summary.hidden = true;
+  }
+  function payload(targetForm = form) {
+    const values = Object.fromEntries(new FormData(targetForm).entries());
+    return { service: values.serviceType || '일반 배송', fields: values, nightEnabled: window.TH_PORTAL.nightEnabled,
+      quote: targetForm === form ? window.TH_FARE.quote(window.TH_MAP.getDistance()) : null,
+      locations: targetForm === form ? window.TH_ORDER.routeLocations().map(p => ({ label: p.label, address: p.address.value, detail: p.detail.value, person: p.person.value, phone: p.phone.value })) : [] };
+  }
+  async function submit(targetForm, summaryText, targetDoc) {
+    const button = targetDoc.getElementById('sms'), edit = targetDoc.getElementById('edit'), message = targetDoc.getElementById('message');
+    button.disabled = edit.disabled = true;
+    try {
+      const previousNight = window.TH_PORTAL.nightEnabled; await refreshSettings();
+      if (targetForm === form && previousNight !== window.TH_PORTAL.nightEnabled) throw Error('야간요금 설정이 바뀌었습니다. 최종 요금을 다시 확인하고 접수해 주세요.');
+      const t = orderAttempt?.context || await ensureThread(true);
+      if (!orderAttempt) orderAttempt = { id: crypto.randomUUID(), thread: t.id, context: { ...t }, summary: summaryText, payload: payload(targetForm) };
+      message.textContent = '주문을 접수하고 있습니다…';
+      const result = await api.rpc('th6_submit_request', { p_id: orderAttempt.id, p_thread: t.id, p_token: t.token, p_summary: orderAttempt.summary, p_payload: orderAttempt.payload });
+      t.orderId = result.id; thread = t; rememberThread(); orderAttempt = null;
+      message.textContent = '주문 요청이 접수되었습니다. 주문번호: ' + result.id + ' · 이용 문의사항에서 답변과 배정 알림을 확인해 주세요.';
+      button.textContent = '접수 완료'; targetDoc.getElementById('newOrder').hidden = false;
+    } catch (e) {
+      message.textContent = e.message;
+      button.disabled = false;
+      // 전송 결과가 불확실한 경우 같은 주문번호로 재시도하도록 내용 수정은 잠근다.
+      if (!orderAttempt) edit.disabled = false;
+    }
+  }
+  $('sms').onclick = () => submit(form, window.TH_FARE.orderText(), document);
+  const originalSubmit = form.onsubmit;
+  form.onsubmit = async e => {
+    e.preventDefault(); const button = form.querySelector('[type=submit]'); button.disabled = true;
+    try {
+      if (!mode) throw Error('주문 방법을 먼저 선택해 주세요.');
+      if (profile) { const fresh = await api.rpc('th6_profile'); if (!fresh) throw Error('계정이 비활성화되었습니다. 사무실에 문의해 주세요.'); profile = fresh; }
+      await refreshSettings(); originalSubmit(e);
+      if (!$('review').hidden) {
+        const who = person(); $('summary').textContent = '[의뢰자] ' + (profile ? profile.company + ' / ' : '') + who.name + ' / ' + who.phone + '\n\n' + $('summary').textContent;
+        reviewCards();
+      }
+    } catch (error) { $('formError').textContent = error.message; }
+    finally { button.disabled = false; }
+  };
+  // 대행 화면은 기존 별도 양식/요금 안내를 유지하면서 접수와 문의만 새 경로로 연결한다.
+  $('agencyFrame').addEventListener('load', () => {
+    const doc = $('agencyFrame').contentDocument;
+    if (!doc?.getElementById('order')) return;
+    const style = doc.createElement('link'); style.rel = 'stylesheet'; style.href = new URL('portal.css', location.href).href; doc.head.append(style);
+    doc.getElementById('sms').onclick = () => submit(doc.getElementById('order'), doc.getElementById('summary').textContent, doc);
+    doc.querySelectorAll('a[href*="open.kakao.com"]').forEach(a => { a.textContent = '💬 이용 문의사항 💬'; a.removeAttribute('target'); a.href = '#'; a.onclick = e => { e.preventDefault(); openChat(); }; });
+  });
+  window.TH_PORTAL = { nightEnabled: false, get profile() { return profile; }, refreshSettings };
+  async function tick() {
+    if (document.hidden || polling || !mode) return; polling = true;
+    try {
+      if ($('chatDialog').open && thread) await readChat();
+      else if (thread) {
+        unread = await api.rpc('th6_unread', { p_thread: thread.id, p_token: thread.token });
+        $('chatUnread').textContent = unread; $('chatUnread').hidden = !unread;
+      }
+    } catch (e) { if ($('chatDialog').open) $('chatError').textContent = e.message; }
+    finally { polling = false; }
+  }
+  setInterval(tick, 10000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
+  window.addEventListener('th:session', () => { if (!api.session && profile) showEntry(); });
+  (async () => {
+    if (sales) try {
+      const route = await api.rpc('th6_public_route', { p_slug: sales });
+      if (!route) throw Error('사용할 수 없는 영업자 링크입니다. 안내받은 주소를 확인해 주세요.');
+      $('salesRoute').textContent = route.name + ' 담당 접수 · 주문과 문의가 담당자에게 전달됩니다.';
+    } catch (e) { $('entryError').textContent = e.message; $('guestOrderButton').disabled = true; $('chatOpen').disabled = true; return; }
+    await api.restore();
+    try {
+      await refreshSettings();
+      if (api.session) { profile = await api.rpc('th6_profile'); if (profile) await enter('member'); else await api.logout(); }
+    } catch (e) { $('entryError').textContent = e.message; }
+  })();
+})();
