@@ -573,7 +573,7 @@
         distanceStatus.textContent = '예상 도로 거리: ' + km + 'km (' +
           (request.roundTrip ? '왕복 합계' : '편도') + ')';
         const fare = window.TH_FARE.base(distanceResult);
-        document.getElementById('distanceFare').textContent = '거리 기준 요금: ' + (fare.amount === null ? '담당자 확인 후 안내' : fare.amount.toLocaleString() + '원');
+        document.getElementById('distanceFare').textContent = '거리 기준 요금: ' + (fare.amount === null ? '담당자 확인 후 안내' : (Math.ceil(fare.amount / 1000) * 1000).toLocaleString('ko-KR') + '원');
       } finally { clearTimeout(timer); }
     } catch (error) {
       if (current === version) {
