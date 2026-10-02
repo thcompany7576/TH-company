@@ -31,6 +31,7 @@
     const list = await api.api('/rest/v1/th6_staff?select=*&user_id=eq.' + api.session.user.id);
     staff = list[0]; if (!staff?.active) { await api.logout(); throw Error('관리 권한이 없거나 비활성화된 계정입니다.'); }
     window.TH_SOUNDS.init(staff.user_id);
+    await window.TH_PUSH.init(staff);
     $('adminTitle').textContent = 'TH company-' + (owner() ? '관제' : staff.name);
     $('ownCardNotice').textContent='';showOwnCard();
     status = owner() ? 'approved' : 'pending';
@@ -52,10 +53,10 @@
     } catch (e) { notice(e.message); }
     finally { $('loginButton').disabled = false; }
   };
-  $('logout').onclick = async () => { await api.logout(); location.reload(); };
+  $('logout').onclick = async () => { try { await window.TH_PUSH.disconnect(); await api.logout(); location.reload(); } catch(e) { notice('로그아웃 전 알림 해제가 필요합니다. 인터넷 연결을 확인해 주세요. ' + e.message); } };
   window.addEventListener('th:session', () => {
     if (!api.session && staff) {
-      window.TH_DISPATCH.reset(); staff = null; showOwnCard(); $('dashboard').hidden = true; $('login').hidden = false; $('logout').hidden = true;
+      window.TH_DISPATCH.reset(); window.TH_PUSH.reset(); staff = null; showOwnCard(); $('dashboard').hidden = true; $('login').hidden = false; $('logout').hidden = true;
       $('adminTitle').textContent = 'TH company';
       for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
       $('orders').replaceChildren(); $('clientList').replaceChildren(); $('adminChatLog').replaceChildren(); $('threadList').replaceChildren();

@@ -1,6 +1,6 @@
 'use strict';
-const VERSION = 'th6-20261002-mobile-update1';
-const shell = ['order.html','admin.html','config.js','portal-api.js','customer-portal.js','address-picker.js','admin.js','portal.css','admin.css','pwa.js','pwa-route.js','order.webmanifest','admin.webmanifest','icon-192.png','icon-512.png'];
+const VERSION = 'th6-20261003-push1';
+const shell = ['order.html','admin.html','config.js','portal-api.js','customer-portal.js','address-picker.js','admin.js','admin-push.js','notification-sounds.js','dispatch-chat.js','portal.css','admin.css','pwa.js','pwa-route.js','order.webmanifest','admin.webmanifest','icon-192.png','icon-512.png'];
 self.addEventListener('install', event => event.waitUntil(caches.open(VERSION).then(cache => cache.addAll(shell.map(path=>new Request(path,{cache:'reload'})))).then(()=>self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('th6-') && key !== VERSION).map(key => caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch', event => {
@@ -13,4 +13,17 @@ self.addEventListener('fetch', event => {
     if (response.ok) { const copy = response.clone(); event.waitUntil(caches.open(VERSION).then(cache => cache.put(new URL(relative,self.location.href),copy))); }
     return response;
   }).catch(() => caches.match(new URL(relative,self.location.href)).then(response => response || Response.error())));
+});
+
+self.addEventListener('push', event => {
+  let data = {}; try { data = event.data?.json() || {}; } catch {}
+  event.waitUntil(self.registration.showNotification('TH company', {
+    body: typeof data.body === 'string' ? data.body.slice(0,200) : '새 알림이 도착했습니다. 관리페이지를 확인해 주세요.',
+    icon: 'icon-192.png', badge: 'icon-192.png', tag: typeof data.tag === 'string' ? data.tag : 'th-company',
+    data: {url: new URL('admin.html',self.registration.scope).href}
+  }));
+});
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(clients.openWindow(new URL('admin.html',self.registration.scope).href));
 });
