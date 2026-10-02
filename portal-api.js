@@ -2,8 +2,8 @@
   'use strict';
   const cfg = window.TH_CONFIG || {};
   const surface = document.documentElement.dataset.surface || 'customer';
-  const storageKey = 'th6:session:' + surface;
   const separateWindows = surface === 'admin';
+  const storageKey = (separateWindows ? 'th6:window-session:' : 'th6:session:') + surface;
   let session = null, refreshing = null, epoch = 0, remembered = true;
   const event = () => window.dispatchEvent(new CustomEvent('th:session', { detail: session }));
   const store = () => {
@@ -79,7 +79,7 @@
   }
   async function restore() {
     try {
-      const local = localStorage.getItem(storageKey), temp = sessionStorage.getItem(storageKey);
+      const local = localStorage.getItem(storageKey) || (separateWindows ? localStorage.getItem('th6:session:admin') : null), temp = sessionStorage.getItem(storageKey);
       remembered = separateWindows && temp ? sessionStorage.getItem(storageKey + ':remember') === 'true' : Boolean(local);
       const saved = JSON.parse((separateWindows ? temp || local : local || temp) || 'null');
       if (saved && typeof saved.access_token === 'string' && typeof saved.refresh_token === 'string' && Number.isFinite(saved.expires_at)) session = saved;
