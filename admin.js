@@ -265,6 +265,7 @@
     finally { $('adminPartnerSave').disabled = false; }
   };
   function editStaff(r, control = false) {
+    $('staffPhone').value=r?.phone||'';$('staffKakao').value=r?.kakao_url||'';
     creatingControl = control; $('staffDialogTitle').textContent = control ? '관제 계정 생성' : '영업자 등록 / 수정';
     $('staffId').value = r?.user_id || ''; $('staffName').value = r?.name || ''; $('staffSlug').value = r?.link_slug || '';
     $('staffLogin').value = $('staffPassword').value = ''; $('staffActive').checked = r?.active ?? true;
@@ -280,7 +281,7 @@
     try {
       const id = $('staffId').value;
       await accountAction({ action: creatingControl ? 'createControl' : id ? 'updateStaff' : 'createStaff', staffId: id || undefined, name: $('staffName').value.trim(), slug: $('staffSlug').value.trim(),
-        loginId: $('staffLogin').value.trim(), password: $('staffPassword').value, active: $('staffActive').checked });
+        phone:$('staffPhone').value.trim(),kakaoUrl:$('staffKakao').value.trim(),loginId: $('staffLogin').value.trim(), password: $('staffPassword').value, active: $('staffActive').checked });
       if (creatingControl) {
         $('staffPassword').value = ''; $('staffDialog').close(); await api.logout();
         notice('관제 계정을 생성했습니다. 새 관제 아이디로 로그인하세요. 기존 계정은 첫 번째 영업자 권한입니다.'); return;
