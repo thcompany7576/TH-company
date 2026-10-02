@@ -17,6 +17,7 @@
   async function enter() {
     const list = await api.api('/rest/v1/th6_staff?select=*&user_id=eq.' + api.session.user.id);
     staff = list[0]; if (!staff?.active) { await api.logout(); throw Error('관리 권한이 없거나 비활성화된 계정입니다.'); }
+    $('adminTitle').textContent = 'TH company-' + (owner() ? '관제' : staff.name);
     status = owner() ? 'approved' : 'pending';
     document.querySelector('[data-page=chat]').hidden = owner();
     document.querySelectorAll('[data-status]').forEach(b=>{b.hidden=owner()&&b.dataset.status==='pending';b.className=b.dataset.status===status?'':'secondary';b.setAttribute('aria-pressed',String(b.dataset.status===status));});
@@ -36,6 +37,7 @@
   window.addEventListener('th:session', () => {
     if (!api.session && staff) {
       staff = null; $('dashboard').hidden = true; $('login').hidden = false; $('logout').hidden = true;
+      $('adminTitle').textContent = 'TH company';
       for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
       $('orders').replaceChildren(); $('clientList').replaceChildren(); $('adminChatLog').replaceChildren(); $('threadList').replaceChildren();
     }
