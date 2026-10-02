@@ -13,6 +13,7 @@
   const notice = value => $('notice').textContent = value;
   const owner = () => staff?.role === 'owner';
   const representative = () => Boolean(staff?.is_representative);
+  const clientManager = () => representative() || staff?.role === 'sales';
   const koreaTime = value => new Date(value).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
   async function accountAction(args) { return api.api('/functions/v1/manage-client-account', { method: 'POST', body: JSON.stringify(args) }); }
   async function enter() {
@@ -25,6 +26,8 @@
     $('login').hidden = true; $('dashboard').hidden = false; $('logout').hidden = false;
     document.querySelectorAll('[data-owner-only]').forEach(e => e.hidden = !owner());
     document.querySelectorAll('[data-representative-only]').forEach(e => e.hidden = !representative());
+    document.querySelector('[data-page=clients]').hidden = !clientManager();
+    document.querySelectorAll('[data-client-manager-only]').forEach(e => e.hidden = !clientManager());
     await loadStaff(); await loadOrders(true); await loadThreads(); baseline = false; pollCursor = null; seenOrders.clear(); seenThreads.clear(); await poll();
   }
   $('loginForm').onsubmit = async e => {
@@ -141,7 +144,7 @@
     const root = $('clientList'); root.replaceChildren(); const q = $('clientSearch').value.toLowerCase();
     for (const c of clients.filter(c => c.company.toLowerCase().includes(q))) {
       const card = text('article', '', 'client-card'); card.append(text('h3', c.company), text('p', (c.address + ' ' + c.detail).trim() || '등록 주소 없음'), text('p', (c.active ? '활성화' : '비활성화') + ' · 담당: ' + (staffRows.find(s => s.user_id === c.staff_id)?.name || '담당 영업자'), 'portal-note'));
-      card.append(button(owner() ? '의뢰자 · 계정 · 거래처 관리' : '등록 정보 · 거래처 확인', () => editClient(c))); root.append(card);
+      card.append(button(clientManager() ? '의뢰자 · 계정 · 거래처 관리' : '등록 정보 · 거래처 확인', () => editClient(c))); root.append(card);
     }
     if (!root.children.length) root.append(text('p', '등록된 의뢰자가 없습니다.'));
   }
@@ -151,13 +154,14 @@
     $('clientAddress').value = c?.address || ''; $('clientAddress').dataset.meta = JSON.stringify(c?.address_meta || {});
     $('clientDetail').value = c?.detail || ''; $('clientStaff').value = c?.staff_id || staffRows.find(s => s.role==='sales')?.user_id || staff.user_id; $('clientActive').checked = c?.active ?? true;
     $('clientDialogTitle').textContent = c ? c.company : '의뢰자 등록'; $('clientNotice').textContent = '';
-    $('clientAccounts').hidden = !c; $('clientSave').hidden = !owner(); $('clientDelete').hidden = !owner() || !c;
-    for (const input of $('clientForm').querySelectorAll('input,select')) input.disabled = !owner();
+    $('clientAccounts').hidden = !c; $('clientSave').hidden = !clientManager(); $('clientDelete').hidden = !clientManager() || !c;
+    for (const input of $('clientForm').querySelectorAll('input,select')) input.disabled = !clientManager();
+    $('clientStaff').disabled = !representative();
     if (!$('clientDialog').open) $('clientDialog').showModal();
     if (c) try { await loadClientAccounts(); } catch (e) { $('clientNotice').textContent = e.message; }
   }
   $('newClient').onclick = () => editClient(null); $('clientClose').onclick = () => $('clientDialog').close();
-  $('clientAddress').onclick = async () => { if (!owner()) return; try { const result = await window.TH_ADDRESS.pick(); if (result) { $('clientAddress').value = result.address; $('clientAddress').dataset.meta = JSON.stringify(result.meta); } } catch (e) { $('clientNotice').textContent = e.message; } };
+  $('clientAddress').onclick = async () => { if (!clientManager()) return; try { const result = await window.TH_ADDRESS.pick(); if (result) { $('clientAddress').value = result.address; $('clientAddress').dataset.meta = JSON.stringify(result.meta); } } catch (e) { $('clientNotice').textContent = e.message; } };
   $('clientForm').onsubmit = async e => {
     e.preventDefault(); $('clientSave').disabled = true;
     try {
@@ -185,7 +189,7 @@
     const root = $('contactList'); root.replaceChildren();
     for (const c of contacts) {
       const card = text('div', '', 'contact-card'); card.append(text('strong', c.name), text('p', c.phone + ' · 아이디: ' + c.login_id + ' · ' + (c.active ? '활성' : '비활성')));
-      if (owner()) {
+      if (clientManager()) {
         const actions = text('div', '', 'actions'); actions.append(button('수정', () => editContact(c)), button('비밀번호 재설정', () => { resetContact = c.id; $('resetPassword').value = ''; $('resetNotice').textContent = ''; $('resetDialog').showModal(); }), button('삭제', async () => {
           if (!confirm(c.name + ' 계정을 삭제할까요?')) return;
           try { await accountAction({ action: 'delete', contactId: c.id }); await loadClientAccounts(); }
