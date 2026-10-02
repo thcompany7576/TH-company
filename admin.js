@@ -7,7 +7,7 @@
   let soundEnabled = false, audio;
   let creatingControl = false;
   let pollCursor = null;
-  const labels = { pending: '미처리', assigned: '배정 완료', completed: '완료', cancelled: '취소' };
+  const labels = { pending: '영업자 확인 중', approved: '관제 배정 대기', assigned: '배정 완료', completed: '완료', cancelled: '취소' };
   const text = (tag, value, cls) => { const e = document.createElement(tag); e.textContent = value; if (cls) e.className = cls; return e; };
   const button = (value, action, cls = 'secondary') => { const e = text('button', value, cls); e.type = 'button'; e.onclick = action; return e; };
   const notice = value => $('notice').textContent = value;
@@ -17,6 +17,9 @@
   async function enter() {
     const list = await api.api('/rest/v1/th6_staff?select=*&user_id=eq.' + api.session.user.id);
     staff = list[0]; if (!staff?.active) { await api.logout(); throw Error('관리 권한이 없거나 비활성화된 계정입니다.'); }
+    status = owner() ? 'approved' : 'pending';
+    document.querySelector('[data-page=chat]').hidden = owner();
+    document.querySelectorAll('[data-status]').forEach(b=>{b.hidden=owner()&&b.dataset.status==='pending';b.className=b.dataset.status===status?'':'secondary';b.setAttribute('aria-pressed',String(b.dataset.status===status));});
     $('login').hidden = true; $('dashboard').hidden = false; $('logout').hidden = false;
     document.querySelectorAll('[data-owner-only]').forEach(e => e.hidden = !owner());
     await loadStaff(); await loadOrders(true); await loadThreads(); baseline = false; pollCursor = null; seenOrders.clear(); seenThreads.clear(); await poll();
@@ -87,15 +90,20 @@
       }
       const details = text('details', ''), summary = text('summary', '전체 주문 내용'), pre = text('pre', r.summary); details.append(summary, pre); card.append(details);
       const actions = text('div', '', 'actions');
-      actions.append(button('코리아센터 입력용 내용 복사', async () => { try { await navigator.clipboard.writeText(r.summary); notice('복사했습니다. 코리아센터에 직접 입력해 주세요.'); } catch { notice('복사하지 못했습니다. 전체 주문 내용을 선택해서 복사해 주세요.'); } }));
-      if (r.thread_id) actions.append(button('고객 문의 / 답변', async () => { await selectPage('chat'); await openThread(r.thread_id); }));
-      for (const next of r.status === 'pending' ? ['assigned','completed','cancelled'] : r.status === 'assigned' ? ['completed','cancelled'] : []) {
+      actions.append(button('코리아센터 입력용 내용 복사', async () => { try { await navigator.clipboard.writeText(r.summary+(r.sales_notes?'\n\n[영업자 전달 특이사항]\n'+r.sales_notes:'')); notice('복사했습니다. 코리아센터에 직접 입력해 주세요.'); } catch { notice('복사하지 못했습니다. 전체 주문 내용을 선택해서 복사해 주세요.'); } }));
+      if (r.thread_id && !owner()) actions.append(button('고객 문의 / 답변', async () => { await selectPage('chat'); await openThread(r.thread_id); }));
+      for (const next of owner() ? (r.status==='approved'?['assigned','cancelled']:r.status==='assigned'?['completed','cancelled']:[]) : (r.status==='pending'?['cancelled']:[])) {
         const b = button(next === 'assigned' ? '기사 배정 완료' : labels[next], async () => {
           const question = next === 'assigned' ? '코리아센터에서 기사 배정을 확인했나요? 고객 문의함으로 배정 알림을 보냅니다.' : next === 'cancelled' ? '이 주문을 취소 처리하고 고객 문의함에 알릴까요?' : '이 주문을 완료 처리할까요?';
           if (!confirm(question)) return; b.disabled = true;
           try { await api.rpc('th6_set_status', { p_id: r.id, p_status: next }); await loadOrders(true); notice('주문을 ' + labels[next] + ' 처리했습니다.'); }
           catch (e) { notice(e.message); b.disabled = false; }
         }, next === 'cancelled' ? 'danger' : next === 'assigned' ? '' : 'secondary'); actions.append(b);
+      }
+      if(r.approved_at){card.append(text('p','영업자 승인: '+koreaTime(r.approved_at),'portal-note'));card.append(text('h3','관제 전달 특이사항'),text('p',r.sales_notes||'특이사항 없음'));}
+      if(r.status==='pending'&&!owner()){
+        const label=text('label','관제 전달 특이사항'),notes=document.createElement('textarea');notes.maxLength=2000;notes.placeholder='관제·기사에게 전달할 내용을 적어 주세요. 없으면 비워 두세요.';label.append(notes);card.append(label);
+        const approve=button('주문 승인 · 관제로 전달',async()=>{if(!confirm('주문 내용과 요청 방식을 확인했나요? 승인하면 관제에 전달됩니다.'))return;approve.disabled=true;try{await api.rpc('th6_approve_request',{p_id:r.id,p_notes:notes.value});await loadOrders(true);notice('승인한 주문을 관제로 전달했습니다.');}catch(e){notice(e.message);approve.disabled=false;}},'');actions.prepend(approve);
       }
       card.append(actions); root.append(card);
     }
