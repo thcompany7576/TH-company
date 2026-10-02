@@ -12,6 +12,7 @@
   const button = (value, action, cls = 'secondary') => { const e = text('button', value, cls); e.type = 'button'; e.onclick = action; return e; };
   const notice = value => $('notice').textContent = value;
   const owner = () => staff?.role === 'owner';
+  const representative = () => Boolean(staff?.is_representative);
   const koreaTime = value => new Date(value).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
   async function accountAction(args) { return api.api('/functions/v1/manage-client-account', { method: 'POST', body: JSON.stringify(args) }); }
   async function enter() {
@@ -23,6 +24,7 @@
     document.querySelectorAll('[data-status]').forEach(b=>{b.hidden=owner()&&b.dataset.status==='pending';b.className=b.dataset.status===status?'':'secondary';b.setAttribute('aria-pressed',String(b.dataset.status===status));});
     $('login').hidden = true; $('dashboard').hidden = false; $('logout').hidden = false;
     document.querySelectorAll('[data-owner-only]').forEach(e => e.hidden = !owner());
+    document.querySelectorAll('[data-representative-only]').forEach(e => e.hidden = !representative());
     await loadStaff(); await loadOrders(true); await loadThreads(); baseline = false; pollCursor = null; seenOrders.clear(); seenThreads.clear(); await poll();
   }
   $('loginForm').onsubmit = async e => {
@@ -51,7 +53,7 @@
       if (page === 'clients') await loadClients();
       if (page === 'chat') await loadThreads();
       if (page === 'settings' && owner()) await loadSettings();
-      if (page === 'staff' && owner()) await loadStaff();
+      if (page === 'staff' && representative()) await loadStaff();
     } catch (e) { notice(e.message); }
   }
   document.querySelectorAll('[data-page]').forEach(b => b.onclick = () => selectPage(b.dataset.page));
@@ -121,16 +123,16 @@
     for (const r of staffRows) {
       const opt = text('option', r.name + (!r.active ? ' (비활성)' : '')); opt.value = r.user_id;
       if (r.role === 'sales' || staffRows.length === 1) $('clientStaff').append(opt);
-      if (!owner()) continue;
-      const card = text('article', '', 'staff-card'); card.append(text('strong', r.name + ' · ' + (r.role === 'owner' ? '대표' : '영업자')));
+      if (!representative()) continue;
+      const card = text('article', '', 'staff-card'); card.append(text('strong', r.name + ' · ' + (r.is_representative ? '대표' : r.role === 'owner' ? '관제' : '영업자')));
       if (r.link_slug) {
         const link = new URL('index.html', location.href); link.searchParams.set('sales', r.link_slug);
         card.append(text('p', link.href, 'link-preview')); card.append(button('홍보 링크 복사', async () => { try { await navigator.clipboard.writeText(link.href); notice('영업자 링크를 복사했습니다.'); } catch { notice('표시된 링크를 직접 복사해 주세요.'); } }));
       } else if (r.role !== 'owner') card.append(text('p', new URL('index.html', location.href).href, 'link-preview'));
       card.append(text('p', r.active ? '활성화' : '비활성화', 'portal-note'));
-      if (r.role === 'sales') card.append(button('수정', () => editStaff(r))); $('staffList').append(card);
+      if (r.role === 'sales' && !r.is_representative) card.append(button('수정', () => editStaff(r))); $('staffList').append(card);
     }
-    if (owner()) { const settings = await api.api('/rest/v1/th6_settings?select=control_ready'); $('newControl').hidden = Boolean(settings[0]?.control_ready); }
+    $('newControl').hidden = true;
   }
   async function loadClients() {
     clients = await api.api('/rest/v1/th6_clients?select=*&order=company.asc'); renderClients();
