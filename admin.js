@@ -7,7 +7,7 @@
   let soundEnabled = false, audio;
   let creatingControl = false;
   let pollCursor = null;
-  const labels = { pending: '영업자 확인 중', approved: '관제 배정 대기', assigned: '배정 완료', completed: '완료', cancelled: '취소' };
+  const labels = { pending: '영업자 확인 중', approved: '관제 배정 대기', assigned: '배정 완료', completed: '완료', held: '보류', cancelled: '취소' };
   const text = (tag, value, cls) => { const e = document.createElement(tag); e.textContent = value; if (cls) e.className = cls; return e; };
   const button = (value, action, cls = 'secondary') => { const e = text('button', value, cls); e.type = 'button'; e.onclick = action; return e; };
   const notice = value => $('notice').textContent = value;
@@ -78,7 +78,7 @@
   }
   function renderOrders() {
     const q = $('search').value.trim().toLowerCase(), root = $('orders'); root.replaceChildren();
-    $('count').textContent = labels[status] + ' ' + rows.length + '건 (불러온 목록) · 접수 후 48시간 보관';
+    $('count').textContent = labels[status] + ' ' + rows.length + '건 (불러온 목록) · '+(status==='held'?'보류 후 48시간 내 복구 가능':'48시간 보관 · 복구 시 보관 시간 갱신');
     const selected = rows.filter(r => (r.summary + ' ' + r.id).toLowerCase().includes(q));
     if (!selected.length) root.append(text('p', q ? '검색 결과가 없습니다.' : labels[status] + ' 주문이 없습니다.'));
     for (const r of selected) {
@@ -87,6 +87,7 @@
       const who = r.payload?.requester;
       card.append(text('p', (r.payload?.company ? r.payload.company + ' · ' : '비로그인 고객 · ') + (who ? who.name + ' / ' + who.phone : '이전 주문')));
       card.append(text('p', koreaTime(r.created_at) + ' 접수', 'portal-note'));
+      if(r.status==='held')card.append(text('p','자동 취소·삭제 예정: '+koreaTime(r.expires_at),'portal-note'));
       const locations = r.payload?.locations;
       if (locations?.length) {
         const grid = text('div', '', 'review-locations');
@@ -99,13 +100,13 @@
       const actions = text('div', '', 'actions');
       actions.append(button('코리아센터 입력용 내용 복사', async () => { try { await navigator.clipboard.writeText(r.summary+(r.sales_notes?'\n\n[영업자 전달 특이사항]\n'+r.sales_notes:'')); notice('복사했습니다. 코리아센터에 직접 입력해 주세요.'); } catch { notice('복사하지 못했습니다. 전체 주문 내용을 선택해서 복사해 주세요.'); } }));
       if (r.thread_id && !owner()) actions.append(button('고객 문의 / 답변', async () => { await selectPage('chat'); await openThread(r.thread_id); }));
-      for (const next of owner() ? (r.status==='approved'?['assigned','cancelled']:r.status==='assigned'?['completed','cancelled']:[]) : (r.status==='pending'?['cancelled']:[])) {
-        const b = button(next === 'assigned' ? '기사 배정 완료' : labels[next], async () => {
-          const question = next === 'assigned' ? '코리아센터에서 기사 배정을 확인했나요? 고객 문의함으로 배정 알림을 보냅니다.' : next === 'cancelled' ? '이 주문을 취소 처리하고 고객 문의함에 알릴까요?' : '이 주문을 완료 처리할까요?';
+      for (const next of owner() ? (r.status==='approved'?['assigned','held']:r.status==='assigned'?['completed','held']:r.status==='held'?['restore']:[]) : (r.status==='pending'?['held']:r.status==='held'&&r.held_from==='pending'?['restore']:[])) {
+        const b = button(next === 'restore' ? '다시 진행' : next === 'assigned' ? '기사 배정 완료' : labels[next], async () => {
+          const question = next === 'assigned' ? '코리아센터에서 기사 배정을 확인했나요? 고객 문의함으로 배정 알림을 보냅니다.' : next === 'restore' ? '주문을 다시 진행할까요? 승인된 주문은 관제 배정 대기로 돌아가며 기사 배정을 다시 확인해야 합니다.' : next === 'held' ? '이 주문을 보류할까요? 보류 후 48시간 내에 복구하지 않으면 자동 취소·삭제됩니다.' : '이 주문을 완료 처리할까요?';
           if (!confirm(question)) return; b.disabled = true;
-          try { await api.rpc('th6_set_status', { p_id: r.id, p_status: next }); await loadOrders(true); notice('주문을 ' + labels[next] + ' 처리했습니다.'); }
+          try { await api.rpc('th6_set_status', { p_id: r.id, p_status: next }); await loadOrders(true); notice('주문을 ' + (next==='restore'?'다시 진행':labels[next]) + ' 처리했습니다.'); }
           catch (e) { notice(e.message); b.disabled = false; }
-        }, next === 'cancelled' ? 'danger' : next === 'assigned' ? '' : 'secondary'); actions.append(b);
+        }, next === 'held' ? 'secondary' : next === 'assigned' ? '' : 'secondary'); actions.append(b);
       }
       if(r.approved_at){card.append(text('p','영업자 승인: '+koreaTime(r.approved_at),'portal-note'));card.append(text('h3','관제 전달 특이사항'),text('p',r.sales_notes||'특이사항 없음'));}
       if(r.status==='pending'&&!owner()){

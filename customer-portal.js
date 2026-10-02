@@ -98,7 +98,7 @@
     }
     if (!log.children.length) log.append(text('p', '문의사항을 남겨 주세요. 사무실에서 확인 후 답변합니다.', 'muted'));
     if (atBottom) log.scrollTop = log.scrollHeight;
-    $('chatStatus').textContent = data.orderId ? '주문 ' + data.orderId.slice(0, 8) + ' · ' + ({ pending: '영업자 확인 중', approved: '관제 배정 대기', assigned: '기사 배정 완료', completed: '완료', cancelled: '취소' }[data.status] || '문의') : '사무실 문의';
+    $('chatStatus').textContent = data.orderId ? '주문 ' + data.orderId.slice(0, 8) + ' · ' + ({ pending: '영업자 확인 중', approved: '관제 배정 대기', assigned: '기사 배정 완료', completed: '완료', held: '보류', cancelled: '취소' }[data.status] || '문의') : '사무실 문의';
     unread = 0; $('chatUnread').hidden = true;
   }
   function renderThreadSelector() {
