@@ -4,7 +4,7 @@
   let staff = null, staffRows = [], rows = [], clients = [], threads = [], contacts = [], clientPartners = [];
   let status = 'pending', page = 'orders', offset = 0, generation = 0, currentThread = null, currentClient = null;
   let replyAttempt = null, resetContact = null, polling = false, seenOrders = new Map(), seenThreads = new Map(), baseline = false;
-  let soundEnabled = false, audio;
+  
   let creatingControl = false;
   let pollCursor = null;
   const labels = { pending: '영업자 확인 중', approved: '관제 배정 대기', assigned: '배정 완료', completed: '완료', held: '보류', cancelled: '취소' };
@@ -30,6 +30,7 @@
   async function enter() {
     const list = await api.api('/rest/v1/th6_staff?select=*&user_id=eq.' + api.session.user.id);
     staff = list[0]; if (!staff?.active) { await api.logout(); throw Error('관리 권한이 없거나 비활성화된 계정입니다.'); }
+    window.TH_SOUNDS.init(staff.user_id);
     $('adminTitle').textContent = 'TH company-' + (owner() ? '관제' : staff.name);
     $('ownCardNotice').textContent='';showOwnCard();
     status = owner() ? 'approved' : 'pending';
@@ -40,7 +41,7 @@
     document.querySelectorAll('[data-representative-only]').forEach(e => e.hidden = !representative());
     document.querySelector('[data-page=clients]').hidden = !clientManager();
     document.querySelectorAll('[data-client-manager-only]').forEach(e => e.hidden = !clientManager());
-    await window.TH_DISPATCH.init(staff,async()=>{notice('새 영업자·관제 메시지가 도착했습니다.');if(soundEnabled)await beep();});
+    await window.TH_DISPATCH.init(staff,async()=>{notice('새 영업자·관제 메시지가 도착했습니다.');await beep();});
     await loadStaff(); await loadOrders(true); await loadThreads(); baseline = false; pollCursor = null; seenOrders.clear(); seenThreads.clear(); await poll();
   }
   $('loginForm').onsubmit = async e => {
@@ -337,23 +338,7 @@
       await api.rpc('th6_admin_reply',{p_thread:replyAttempt.thread,p_body:body,p_message:replyAttempt.id});replyAttempt=null;$('replyBody').value='';await readAdminChat();
     } catch(e) { notice(e.message); } finally { $('replySend').disabled=false; }
   };
-  async function beep() {
-    audio ||= new (window.AudioContext||window.webkitAudioContext)();await audio.resume();
-    // 세 번 반복하는 두 음 알림. 짧은 진입·종료 구간으로 잡음을 줄인다.
-    const start=audio.currentTime;
-    for(let repeat=0;repeat<3;repeat++)for(let note=0;note<2;note++){
-      const at=start+repeat*1.05+note*.38,duration=.32;
-      const oscillator=audio.createOscillator(),gain=audio.createGain();
-      oscillator.type='triangle';oscillator.frequency.value=note?1046:784;
-      oscillator.connect(gain);gain.connect(audio.destination);
-      gain.gain.setValueAtTime(0,at);gain.gain.linearRampToValueAtTime(.35,at+.025);
-      gain.gain.setValueAtTime(.35,at+duration-.06);gain.gain.linearRampToValueAtTime(0,at+duration);
-      oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};
-      oscillator.start(at);oscillator.stop(at+duration);
-    }
-  }
-  $('soundToggle').onclick=async()=>{try { if(!soundEnabled)await beep();soundEnabled=!soundEnabled;$('soundToggle').textContent=soundEnabled?'알림 소리 끄기':'알림 소리 켜기'; }catch(e){notice('소리를 재생하지 못했습니다. 기기 음량을 확인해 주세요.');}};
-  $('soundTest').onclick=()=>beep().catch(()=>notice('소리를 재생하지 못했습니다.'));
+  async function beep(){await window.TH_SOUNDS.play();}
   async function poll() {
     if(!staff||document.hidden||polling)return;polling=true;
     try {
@@ -365,7 +350,7 @@
       const orderChanged=orders.some(o=>seenOrders.get(o.id)!==o.updated_at),chatChanged=incoming.some(t=>seenThreads.get(t.id)?.updated!==t.updated_at);
       for(const o of orders)seenOrders.set(o.id,o.updated_at);for(const t of incoming)seenThreads.set(t.id,{customer:t.last_customer_at,updated:t.updated_at});
       pollCursor=result.cursor;baseline=true;
-      if(newOrder||newMessage){notice(newOrder?'새 주문이 도착했습니다.':'새 문의가 도착했습니다.');if(soundEnabled)await beep();}
+      if(newOrder||newMessage){notice(newOrder?'새 주문이 도착했습니다.':'새 문의가 도착했습니다.');await beep();}
       if(page==='settings'&&owner())await loadSettings();
       if(orderChanged&&page==='orders')await loadOrders(true);
       if(chatChanged&&page==='chat'){await loadThreads();if(currentThread)await readAdminChat();}
