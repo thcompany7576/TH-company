@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#111111">
-<meta property="og:title" content="TH company | 온라인명함">
-<meta property="og:description" content="퀵서비스 · 배송 · 운송 · 출장서비스 · 각종 물품">
-<meta property="og:type" content="website"><meta property="og:image" content="https://thcompany7576.github.io/TH-company/th-company-team-banner.png">
-<title>TH company | 온라인명함</title>
+<meta property="og:title" content="THcompany">
+<meta property="og:description" content="THcompany">
+<meta property="og:type" content="website"><meta property="og:image" content="https://thcompany7576.github.io/TH-company/thcompany-share-v2.png">
+<title>THcompany</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#111;color:#fff;font-family:Arial,"Noto Sans KR",sans-serif}
@@ -48,9 +48,9 @@ body{margin:0;background:#111;color:#fff;font-family:Arial,"Noto Sans KR",sans-s
   <div class="footer">TH company · 빠르게, 안전하게, 정확하게!</div>
 </div>
 <script>
-const CARD_URL = location.href;
+const shareUrl=new URL(location.href);shareUrl.searchParams.set("v","brand2");const CARD_URL=shareUrl.href;
 const shareButton=document.getElementById('shareCardButton');
-const shareData={title:"TH company 온라인명함",text:"TH company | 퀵서비스·배송·운송 문의",url:CARD_URL};
+const shareData={title:"THcompany",text:"THcompany",url:CARD_URL};
 const nativeShare=typeof navigator.share==='function'&&(!navigator.canShare||navigator.canShare(shareData));
 if(!nativeShare)shareButton.textContent='🔗 명함 링크 복사';
 async function shareCard(){
