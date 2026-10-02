@@ -303,14 +303,10 @@
     finally { $('staffSave').disabled = false; }
   };
   async function loadSettings() {
-    const settings = await api.rpc('th6_public_settings'); $('nightEnabled').checked = settings.nightEnabled;
+    const settings = await api.rpc('th6_public_settings'); $('nightStatus').textContent = settings.nightEnabled?'현재 야간요금 적용 중 ('+Math.round(settings.nightRate*100)+'% 추가)' :'현재 주간요금 적용 중';
     document.querySelectorAll('[data-service]').forEach(c => c.checked = Boolean(settings.services?.[c.dataset.service]));
   }
-  $('nightEnabled').onchange = async () => {
-    const c = $('nightEnabled'); c.disabled = true;
-    try { await api.rpc('th6_set_night', { p_enabled: c.checked }); notice('야간요금을 ' + (c.checked ? '활성화' : '비활성화') + '했습니다.'); }
-    catch(e) { c.checked=!c.checked; notice(e.message); } finally { c.disabled=false; }
-  };
+
   document.querySelectorAll('[data-service]').forEach(c => c.onchange=async()=> {
     c.disabled=true; try { await api.rpc('th6_set_service',{p_service:c.dataset.service,p_enabled:c.checked}); notice('서비스 설정을 저장했습니다.'); }
     catch(e) { c.checked=!c.checked;notice(e.message); } finally { c.disabled=false; }
@@ -370,6 +366,7 @@
       for(const o of orders)seenOrders.set(o.id,o.updated_at);for(const t of incoming)seenThreads.set(t.id,{customer:t.last_customer_at,updated:t.updated_at});
       pollCursor=result.cursor;baseline=true;
       if(newOrder||newMessage){notice(newOrder?'새 주문이 도착했습니다.':'새 문의가 도착했습니다.');if(soundEnabled)await beep();}
+      if(page==='settings'&&owner())await loadSettings();
       if(orderChanged&&page==='orders')await loadOrders(true);
       if(chatChanged&&page==='chat'){await loadThreads();if(currentThread)await readAdminChat();}
       $('unreadCount').textContent=result.unread||'';$('unreadCount').hidden=!result.unread;
