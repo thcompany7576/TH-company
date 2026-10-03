@@ -48,7 +48,6 @@
     if(distance?.roundTrip)rows.push({name:'왕복 배송 추가요금',amount:fare.roundExtra??null});
     rows.push({ name: '물품 크기 (' + $('itemSize').value + ')', amount: settings.size[$('itemSize').value] ?? null });
     rows.push({ name: '물품 무게 (' + $('itemWeight').value + ')', amount: settings.weight[$('itemWeight').value] ?? null });
-    if ($('urgent').value === 'yes') rows.push({ name: '급송 요청 추가요금', amount: fare.amount === null ? null : fare.amount * settings.urgent });
     const locations = window.TH_ORDER.routeLocations();
     locations.forEach((location, index) => {
       if (['from', 'to'].includes(location.address.name)) return;
@@ -67,6 +66,11 @@
       const nightAmount = subtotal === null ? null : subtotal * window.TH_PORTAL.nightRate;
       rows.push({ name: '야간 접수 추가요금', amount: nightAmount });
       if (subtotal !== null) subtotal += nightAmount;
+    }
+    if ($('urgent').value === 'yes') {
+      const urgentAmount = subtotal === null ? null : subtotal * settings.urgent;
+      rows.push({ name: '급송 요청 추가요금', amount: urgentAmount });
+      if (subtotal !== null) subtotal += urgentAmount;
     }
     const total = subtotal === null ? null : Math.ceil(subtotal / 1000) * 1000;
     if (total !== null && total > subtotal) rows.push({ name: '요금 단위 조정', amount: total - subtotal });
@@ -181,14 +185,19 @@
   }
   function deliveryChanged(urgent) {
     $('urgentToggle').checked = urgent;
-    $('oneToggle').checked = !urgent;
     $('urgent').value = urgent ? 'yes' : 'no';
     $('urgentInfo').textContent = urgent ? '급송을 요청합니다.' : '일반 배송으로 요청합니다.';
     update();
   }
   $('urgentToggle').addEventListener('change', () => deliveryChanged($('urgentToggle').checked));
-  $('oneToggle').addEventListener('change', () => deliveryChanged(!$('oneToggle').checked));
+  $('oneToggle').addEventListener('change', () => {
+    $('oneToggle').checked = true;
+    $('roundToggle').checked = false;
+    $('trip').value = 'one';
+    $('trip').dispatchEvent(new Event('change', { bubbles: true }));
+  });
   $('roundToggle').addEventListener('change', () => {
+    $('oneToggle').checked = !$('roundToggle').checked;
     $('trip').value = $('roundToggle').checked ? 'round' : 'one';
     $('trip').dispatchEvent(new Event('change', { bubbles: true }));
   });
