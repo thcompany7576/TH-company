@@ -20,7 +20,7 @@
   const settings = {
     size: { '소': 0, '중': 1000, '대': 3000 },
     weight: { '5kg 미만': 0, '5kg~15kg': 1000, '15kg 초과': 2000 },
-    urgent: 0.3, extraLocation: 7000
+    urgent: 0.3
   };
   const money = amount => amount.toLocaleString('ko-KR') + '원';
   function isLocal(first, second) {
@@ -32,9 +32,14 @@
     }
     return local;
   }
+  function routeLocality(locations) {
+    const results = locations.slice(1).map(p => isLocal(locations[0].address, p.address));
+    if (results.includes(false)) return false;
+    return results.length && results.every(p => p === true) ? true : null;
+  }
   function base(distance) {
     if (!distance || !Number.isFinite(distance.baseMeters ?? distance.outboundMeters)) return { amount: null };
-    const local = isLocal(document.querySelector('[name="from"]'), document.querySelector('[name="to"]'));
+    const local = distance.localRoute !== undefined ? distance.localRoute : isLocal(document.querySelector('[name="from"]'), document.querySelector('[name="to"]'));
     if (local === null) return { amount: null };
     const km = Math.round((distance.baseMeters ?? distance.outboundMeters) / 1000);
     const outsideBase = Math.max(0, 6000 - Math.max(0, km - 5) * 600);
@@ -48,13 +53,6 @@
     if(distance?.roundTrip)rows.push({name:'왕복 배송 추가요금',amount:fare.roundExtra??null});
     rows.push({ name: '물품 크기 (' + $('itemSize').value + ')', amount: settings.size[$('itemSize').value] ?? null });
     rows.push({ name: '물품 무게 (' + $('itemWeight').value + ')', amount: settings.weight[$('itemWeight').value] ?? null });
-    const locations = window.TH_ORDER.routeLocations();
-    locations.forEach((location, index) => {
-      if (['from', 'to'].includes(location.address.name)) return;
-      const local = isLocal(locations[index - 1].address, location.address);
-      const meters = distance?.extraMeters?.[location.address.name];
-      rows.push({ name: location.label + ' 추가요금', amount: local === null ? null : local ? settings.extraLocation : Number.isFinite(meters) ? Math.round(meters / 1000) * 1000 : null });
-    });
     const now = new Date();
     const reserved = $('fromScheduled').checked;
     const target = reserved ? new Date($('fromDate').value + 'T' + $('fromTime').value + ':00+09:00') : now;
@@ -106,7 +104,7 @@
       ($('splitFare').textContent ? '\n' + $('splitFare').textContent : '');
   }
   const orderText = () => $('summary').textContent + ($('summary').dataset.fareText || '');
-  window.TH_FARE = { base, quote, renderReview, settings, isLocal, orderText };
+  window.TH_FARE = { base, quote, renderReview, settings, isLocal, routeLocality, orderText };
 })();
 
 </script>
@@ -573,20 +571,12 @@
               data.priority !== 'DISTANCE' || data.avoid !== 'motorway' || data.roundTrip !== payload.roundTrip) throw new Error('거리 계산 결과를 확인하지 못했어요.');
           return data;
         }
-        const direct = (first, second) => measure({ from: addresses[first], to: addresses[second], waypoints: [], roundTrip: false }, [points[first], points[second]]);
-        const tasks = [measure(request, points)];
-        const extraLocations = locations.map((location, index) => ({ location, index })).filter(p => !['from', 'to'].includes(p.location.address.name));
-        const fromIndex = locations.findIndex(p => p.address.name === 'from'), toIndex = locations.findIndex(p => p.address.name === 'to');
-        if (extraLocations.length) tasks.push(direct(fromIndex, toIndex));
-        const chargedLegs = extraLocations.filter(p => window.TH_FARE.isLocal(locations[p.index - 1].address, p.location.address) === false);
-        chargedLegs.forEach(p => tasks.push(direct(p.index - 1, p.index)));
-        const results = await Promise.all(tasks);
+        const data = await measure(request, points);
         if (current !== version || stamp !== fingerprint()) return;
-        const data = results[0], baseMeters = extraLocations.length ? results[1].outboundMeters : data.outboundMeters;
-        const extraMeters = {};
-        chargedLegs.forEach((p, i) => { extraMeters[p.location.address.name] = results[i + (extraLocations.length ? 2 : 1)].outboundMeters; });
+        const baseMeters = data.outboundMeters;
+        const localRoute = window.TH_FARE.routeLocality(locations);
         const km = Math.round(data.distanceMeters / 1000);
-        distanceResult = { fingerprint: stamp, km, roundTrip: request.roundTrip, baseMeters, extraMeters, outboundMeters: data.outboundMeters, meters: data.distanceMeters };
+        distanceResult = { fingerprint: stamp, km, roundTrip: request.roundTrip, baseMeters, localRoute, outboundMeters: data.outboundMeters, meters: data.distanceMeters };
         distanceStatus.textContent = '예상 도로 거리: ' + km + 'km (' +
           (request.roundTrip ? '왕복 합계' : '편도') + ')';
         const fare = window.TH_FARE.base(distanceResult);
