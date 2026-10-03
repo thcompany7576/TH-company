@@ -3,3 +3,4 @@
 .customer-order-list{max-height:230px;overflow:auto;border-bottom:1px solid #afa0aa;padding-bottom:12px}.customer-order-list h3{margin:12px 0}.customer-order-item{display:block;width:100%;text-align:left;margin:8px 0;white-space:normal}.customer-order-item small{display:block;font-size:13px;overflow-wrap:anywhere}.customer-order-item[aria-current=true]{border:2px solid #f3d442}.customer-order-item .chat-unread{margin-top:4px;background:#c83d43}.chat-log{height:clamp(140px,30dvh,330px)}.chat-unread{background:#c83d43!important;color:white!important}
 
 #clientLoginDialog .portal-entry{margin:0;padding:12px!important;border:0;background:transparent}#memberInstall{margin:16px 0}#memberInstall button{margin-left:12px}.setting-card{padding:12px;border:1px solid #afa0aa;border-radius:10px;margin:10px 0}.setting-card .actions{margin-top:8px}
+#memberInstall [data-install-hint]{color:var(--th-muted,#65535f);line-height:1.6}
