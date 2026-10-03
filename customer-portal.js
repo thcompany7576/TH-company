@@ -11,6 +11,15 @@
   const orderNumber=t=>String(t.orderNumber||'확인 중');
   const statusLabels={pending:'영업자 확인 중',approved:'관제 배정 대기',assigned:'기사 배정 완료',completed:'완료',held:'보류'};
   const account=()=>profile?.contactId||'guest:'+sales;
+  function updateSalesCard() {
+    if(!profile)return;
+    const link=document.querySelector('main > a[href]');
+    const target=new URL('index.html',location.href);
+    target.searchParams.set('member','1');
+    if(profile.sales?.slug)target.searchParams.set('sales',profile.sales.slug);
+    link.href=target.href;
+    $('salesRoute').textContent=profile.sales?profile.sales.name+' 담당 접수 · 주문과 문의가 담당자에게 전달됩니다.':'담당 영업자 확인이 필요합니다. 사무실에 문의해 주세요.';
+  }
   const text = (tag, value, className) => { const el = document.createElement(tag); el.textContent = value; if (className) el.className = className; return el; };
   function savedThreads() {
     try { return JSON.parse(localStorage.getItem(memoryKey) || '[]').filter(t => t?.id && /^[a-f0-9]{64}$/.test(t.token) && t.time > Date.now() - 48 * 3600000); } catch { return []; }
@@ -93,6 +102,7 @@
     $('customerLogout').hidden=!profile;
     $('requesterProfile').hidden = !profile; $('requesterCard').hidden = !profile;
     if (profile) {
+      updateSalesCard();
       $('profileCompany').textContent = profile.company; $('profileName').textContent = profile.name;
       $('profilePhone').textContent = profile.phone; $('profileAddress').textContent = (profile.address + ' ' + profile.detail).trim() || '등록 주소 없음';
       await loadPartners();
@@ -414,6 +424,7 @@
     try {
       await refreshSettings();
       await refreshInbox();
+      if(profile){const current=await api.rpc('th6_profile');if(!current){await api.logout();return;}profile=current;updateSalesCard();}
       if ($('chatDialog').open && thread){await readChat();await refreshInbox();}
     } catch (e) { if ($('chatDialog').open) $('chatError').textContent = e.message; }
     finally { polling = false; }
