@@ -11,6 +11,7 @@ section h1,section h2,section h3,.order-card h3,.review-location h3,.portal-entr
 section a,.card a:not(.btn),.link-preview{color:var(--th-ink);text-decoration:underline;text-underline-offset:3px}
 .portal-note,.muted,small,.profile-value,.sub,.hint,.thread-item small{color:var(--th-muted)}
 main>p.portal-note,main>p.muted,.admin-header p,.footer,[data-install-hint]{color:var(--th-on-bg)}
+#order>p.portal-note,#order>p.muted{color:var(--th-on-bg)}
 .admin-menu-panel [data-install-hint]{color:var(--th-muted)}
 input:not([type=checkbox]):not([type=radio]),select,textarea,.portal-entry input,.chat-dialog input,.chat-dialog textarea,.partner-editor input{background:var(--th-input);color:var(--th-ink);border-color:var(--th-line);color-scheme:light}
 input::placeholder,textarea::placeholder{color:var(--th-muted);opacity:1}
