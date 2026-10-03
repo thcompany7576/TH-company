@@ -4,3 +4,5 @@
 
 .order-route p{margin:6px 0;overflow-wrap:anywhere}.order-card .order-fare{margin:12px 0}.order-note{padding:8px 12px;border-left:4px solid #f3d442;white-space:pre-wrap}.order-extra>summary{cursor:pointer;font-weight:bold}.order-extra[open]{border-top:1px solid #afa0aa;padding-top:12px}.order-card .section-head h3{margin:0}.order-extra pre{font-size:14px}.thread-item .badge{display:inline-block;margin-top:6px;color:#fff}#orderSearch{grid-template-columns:1fr}.badge{background:#c83d43!important;color:#fff!important}
 .order-card.order-focus{outline:3px solid #f3d442;outline-offset:2px}
+
+.fare-adjustment{padding:12px 14px;border:1px solid #afa0aa;border-left:4px solid #f3d442;border-radius:10px;margin:12px 0}.fare-adjustment h4{margin:0}.fare-adjustment .inline{margin:8px 0}.fare-adjustment fieldset{border:0;padding:0;margin:12px 0}

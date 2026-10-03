@@ -1,6 +1,6 @@
 'use strict';
-const VERSION = 'th6-20261003-workspace3';
-const shell = ['order.html','admin.html','config.js','portal-api.js','customer-portal.js','address-picker.js','admin.js','admin-push.js','notification-sounds.js','dispatch-chat.js','portal.css','admin.css','th-theme.css','pwa.js','pwa-route.js','order.webmanifest','admin.webmanifest','icon-192.png','icon-512.png'];
+const VERSION = 'th6-20261003-followup1';
+const shell = ['order.html','admin.html','config.js','portal-api.js','customer-portal.js','address-picker.js','admin.js','admin-push.js','voice-notifications.js','dispatch-chat.js','portal.css','admin.css','th-theme.css','pwa.js','pwa-route.js','order.webmanifest','admin.webmanifest','icon-192.png','icon-512.png'];
 self.addEventListener('install', event => event.waitUntil(caches.open(VERSION).then(cache => cache.addAll(shell.map(path=>new Request(path,{cache:'reload'})))).then(()=>self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('th6-') && key !== VERSION).map(key => caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch', event => {
@@ -17,7 +17,7 @@ self.addEventListener('fetch', event => {
 
 function notificationUrl(tag){
   const url=new URL('admin.html',self.registration.scope),parts=String(tag||'').split(':'),id=parts[1];
-  if(/^[a-f0-9-]{36}$/.test(id||'')){if(parts[0]==='customer')url.searchParams.set('thread',id);else if(['order','approved'].includes(parts[0]))url.searchParams.set('order',id);}
+  if(/^[a-f0-9-]{36}$/.test(id||'')){if(['customer','monitor'].includes(parts[0]))url.searchParams.set('thread',id);else if(['order','approved'].includes(parts[0]))url.searchParams.set('order',id);}
   return url.href;
 }
 self.addEventListener('push', event => {

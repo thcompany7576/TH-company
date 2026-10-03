@@ -6,7 +6,7 @@
   let profile = null, partners = [], mode = null, settingsReady = false, thread = null, polling = false;
   let pendingMessage = null, orderAttempt = null, loadingSettings = null, unread = 0;
   const memoryKey = 'th6:threads';
-  let inbox = [], inboxLoading = null;
+  let inbox = [], inboxLoading = null, inboxBaseline=false;
   const statusLabels={pending:'영업자 확인 중',approved:'관제 배정 대기',assigned:'기사 배정 완료',completed:'완료',held:'보류'};
   const account=()=>profile?.contactId||'guest:'+sales;
   const text = (tag, value, className) => { const el = document.createElement(tag); el.textContent = value; if (className) el.className = className; return el; };
@@ -39,19 +39,32 @@
     })();
     try { return await loadingSettings; } finally { loadingSettings = null; }
   }
+  const loginDialog=document.createElement('dialog');loginDialog.className='chat-dialog';loginDialog.id='clientLoginDialog';
+  const loginClose=text('button','닫기','secondary');loginClose.type='button';loginClose.onclick=()=>loginDialog.close();
+  $('portalEntry').before(loginDialog);loginDialog.append(loginClose,$('portalEntry'));
+  $('memberLoginOpen').onclick=()=>{$('portalEntry').hidden=false;loginDialog.showModal();$('loginId').focus();};
+  function paymentChoices(targetForm=form,doc=document){
+    const select=targetForm.elements.paymentMethod;if(!select)return;select.replaceChildren();
+    const blank=text('option','결제 방법을 선택해 주세요');blank.value='';blank.disabled=blank.selected=true;select.append(blank);
+    for(const [value,label] of profile?[['신용','신용 · 의뢰자 결제'],['선불','선불 · 출발지 결제'],['착불','착불 · 도착지 결제']]:[['카드','카드'],['현금','현금']]){const option=text('option',label);option.value=value;select.append(option);}
+    const split=doc.getElementById('splitPayment');if(split){split.checked=false;split.disabled=Boolean(profile);split.closest('label').hidden=Boolean(profile);}
+    select.dispatchEvent(new Event('change',{bubbles:true}));
+  }
   function showEntry() {
-    mode = null; profile = null; partners = []; thread = null;inbox=[];inboxLoading=null;
-    for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
-    $('chatLog').replaceChildren(); $('partnerList').replaceChildren();
-    $('portalEntry').hidden = false; $('portalContent').hidden = true;
-    $('accountActions').hidden = true; $('requesterProfile').hidden = true; $('requesterCard').hidden = true;
-    $('loginId').focus();
+    profile=null;partners=[];thread=null;inbox=[];inboxBaseline=false;
+    for(const dialog of document.querySelectorAll('dialog[open]'))dialog.close();
+    $('chatLog').replaceChildren();$('partnerList').replaceChildren();
+    enter('guest').catch(e=>$('entryError').textContent=e.message);
   }
   async function enter(nextMode) {
-    await refreshSettings(); mode = nextMode;
+    await refreshSettings(); mode = nextMode;inbox=[];inboxBaseline=false;loginDialog.close();paymentChoices();
+    const agencyDoc=$('agencyFrame').contentDocument;if(agencyDoc?.getElementById('order'))paymentChoices(agencyDoc.getElementById('order'),agencyDoc);
+    $('memberInstall').hidden=!profile;$('memberLoginOpen').hidden=Boolean(profile);
+    window.TH_SOUNDS.init(profile?.contactId||'customer-device');
     $('portalEntry').hidden = true; $('portalContent').hidden = false;
     $('accountActions').hidden = false; $('accountName').textContent = profile ? profile.company + ' · ' + profile.name : '로그인 없이 주문';
     $('partnerManagerButton').hidden = !profile;
+    $('customerLogout').hidden=!profile;
     $('requesterProfile').hidden = !profile; $('requesterCard').hidden = !profile;
     if (profile) {
       $('profileCompany').textContent = profile.company; $('profileName').textContent = profile.name;
@@ -103,6 +116,8 @@
     if (!log.children.length) log.append(text('p', '문의사항을 남겨 주세요. 사무실에서 확인 후 답변합니다.', 'muted'));
     if (atBottom) log.scrollTop = log.scrollHeight;
     $('chatStatus').textContent = data.orderId ? '주문 ' + data.orderId.slice(0, 8) + ' · ' + ({ pending: '영업자 확인 중', approved: '관제 배정 대기', assigned: '기사 배정 완료', completed: '완료', held: '보류', cancelled: '취소' }[data.status] || '문의') : '사무실 문의';
+    $('chatForm').hidden=data.status==='completed';
+    if(data.status==='completed')log.append(text('p','완료된 주문의 대화는 정리되었습니다. 추가 문의는 일반 이용문의를 이용해 주세요.'));
     unread = 0; $('chatUnread').hidden = true;
   }
   async function refreshInbox() {
@@ -112,7 +127,11 @@
       const known=savedThreads().filter(t=>t.account===who);
       const data=await api.rpc('th6_customer_threads',{p_threads:known.map(t=>({id:t.id,token:t.token}))});
       if(account()!==who)return;
-      inbox=data;renderThreadSelector();renderInbox();
+      if(inboxBaseline){
+        const changed=data.filter(t=>{const old=inbox.find(r=>r.id===t.id);return old&&((Number(t.unread)>0&&t.updatedAt!==old.updatedAt)||t.status!==old.status||t.fare!==old.fare);});
+        if(changed.length){const t=changed[0],old=inbox.find(r=>r.id===t.id);const kind=t.status!==old.status?({assigned:'assigned',completed:'completed',held:'held',approved:'approved',pending:'restored'}[t.status]||'reply'):t.fare!==old.fare?'fare':'reply';await window.TH_SOUNDS.play(kind);}
+      }
+      inboxBaseline=true;inbox=data;renderThreadSelector();renderInbox();
       unread=inbox.reduce((sum,t)=>sum+Number(t.unread||0),0);$('chatUnread').textContent=unread;$('chatUnread').hidden=!unread;
     })();try{await inboxLoading;}finally{inboxLoading=null;}
   }
@@ -156,7 +175,7 @@
   document.querySelectorAll('[data-open-chat]').forEach(b => b.onclick = openChat);
   $('chatThread').onchange = async () => { try { const t=inbox.find(t=>t.id===$('chatThread').value);if(t)chooseThread(t);await readChat();await refreshInbox(); } catch (e) { $('chatError').textContent = e.message; } };
   $('chatNew').textContent='일반 이용문의';
-  $('chatNew').onclick = () => { thread = null;renderInbox(); $('chatLog').replaceChildren(); $('chatStatus').textContent = '새 문의'; $('chatIdentity').hidden = Boolean(profile); $('chatBody').focus(); };
+  $('chatNew').onclick = () => { thread = null;$('chatForm').hidden=false;renderInbox(); $('chatLog').replaceChildren(); $('chatStatus').textContent = '새 문의'; $('chatIdentity').hidden = Boolean(profile); $('chatBody').focus(); };
   $('chatForm').onsubmit = async e => {
     e.preventDefault(); if (!$('chatBody').value.trim()) return;
     $('chatSend').disabled = true; $('chatError').textContent = '';
@@ -324,7 +343,7 @@
   form.onsubmit = async e => {
     e.preventDefault(); const button = form.querySelector('[type=submit]'); button.disabled = true;
     try {
-      if (!mode) throw Error('주문 방법을 먼저 선택해 주세요.');
+      if (!mode) throw Error('주문 화면을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
       if (profile) { const fresh = await api.rpc('th6_profile'); if (!fresh) throw Error('계정이 비활성화되었습니다. 사무실에 문의해 주세요.'); profile = fresh; }
       await refreshSettings(); originalSubmit(e);
       if (!$('review').hidden) {
@@ -338,6 +357,7 @@
   $('agencyFrame').addEventListener('load', () => {
     const doc = $('agencyFrame').contentDocument;
     if (!doc?.getElementById('order')) return;
+    paymentChoices(doc.getElementById('order'),doc);
     const style = doc.createElement('link'); style.rel = 'stylesheet'; style.href = new URL('portal.css', location.href).href; doc.head.append(style);
     doc.getElementById('sms').onclick = () => submit(doc.getElementById('order'), doc.getElementById('summary').textContent, doc);
     doc.querySelectorAll('a[href*="open.kakao.com"]').forEach(a => { a.textContent = '💬 이용 문의사항 💬'; a.removeAttribute('target'); a.href = '#'; a.onclick = e => { e.preventDefault(); openChat(); }; });
@@ -347,8 +367,8 @@
     if (document.hidden || polling || !mode) return; polling = true;
     try {
       await refreshSettings();
-      if ($('chatDialog').open && thread) await readChat();
       await refreshInbox();
+      if ($('chatDialog').open && thread){await readChat();await refreshInbox();}
     } catch (e) { if ($('chatDialog').open) $('chatError').textContent = e.message; }
     finally { polling = false; }
   }
@@ -364,7 +384,8 @@
     await api.restore();
     try {
       await refreshSettings();
-      if (api.session) { profile = await api.rpc('th6_profile'); if (profile) await enter('member'); else await api.logout(); }
+      if (api.session) { profile = await api.rpc('th6_profile');if(!profile)await api.logout(); }
+      await enter(profile?'member':'guest');
     } catch (e) { $('entryError').textContent = e.message; }
   })();
 })();
