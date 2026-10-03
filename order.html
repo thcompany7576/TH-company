@@ -72,8 +72,8 @@
       rows.push({ name: '급송 요청 추가요금', amount: urgentAmount });
       if (subtotal !== null) subtotal += urgentAmount;
     }
-    const total = subtotal === null ? null : Math.ceil(subtotal / 1000) * 1000;
-    if (total !== null && total > subtotal) rows.push({ name: '요금 단위 조정', amount: total - subtotal });
+    const total = subtotal === null ? null : rows.reduce((sum, row) => sum +
+      (row.name === '편도 거리 기준 요금' ? Math.ceil(row.amount / 1000) : Math.round(row.amount / 1000)) * 1000, 0);
     const percent = $('splitPayment').checked ? Number($('splitRatio').value) : null;
     const fromAmount = total !== null && percent !== null ? Math.round(total * percent / 100) : null;
     return { rows, total, deposit: reserved && hours >= 3 ? 10000 : 0,
@@ -82,14 +82,9 @@
   function displayFareRows(result) {
     const rows = result.rows.filter(r => r.name !== '요금 단위 조정').map(r => ({ ...r }));
     if (result.total === null) return rows;
-    const baseRow = rows.find(r => r.name === '편도 거리 기준 요금');
     for (const row of rows) {
-      row.remainder = row.amount % 1000;
-      row.amount = row === baseRow ? Math.ceil(row.amount / 1000) * 1000 : Math.floor(row.amount / 1000) * 1000;
+      row.amount = (row.name === '편도 거리 기준 요금' ? Math.ceil(row.amount / 1000) : Math.round(row.amount / 1000)) * 1000;
     }
-    let remaining = result.total - rows.reduce((sum, r) => sum + r.amount, 0);
-    const extras = rows.filter(r => r !== baseRow && r.remainder > 0).sort((a,b) => b.remainder-a.remainder);
-    for (const row of extras) { if (remaining <= 0) break; row.amount += 1000; remaining -= 1000; }
     return rows;
   }
   function renderReview(distance) {
