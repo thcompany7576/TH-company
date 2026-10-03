@@ -79,12 +79,25 @@
     return { rows, total, deposit: reserved && hours >= 3 ? 10000 : 0,
       percent, fromAmount, toAmount: fromAmount === null ? null : total - fromAmount };
   }
+  function displayFareRows(result) {
+    const rows = result.rows.filter(r => r.name !== '요금 단위 조정').map(r => ({ ...r }));
+    if (result.total === null) return rows;
+    const baseRow = rows.find(r => r.name === '편도 거리 기준 요금');
+    for (const row of rows) {
+      row.remainder = row.amount % 1000;
+      row.amount = row === baseRow ? Math.ceil(row.amount / 1000) * 1000 : Math.floor(row.amount / 1000) * 1000;
+    }
+    let remaining = result.total - rows.reduce((sum, r) => sum + r.amount, 0);
+    const extras = rows.filter(r => r !== baseRow && r.remainder > 0).sort((a,b) => b.remainder-a.remainder);
+    for (const row of extras) { if (remaining <= 0) break; row.amount += 1000; remaining -= 1000; }
+    return rows;
+  }
   function renderReview(distance) {
     const result = quote(distance);
     $('fareBreakdown').replaceChildren();
     const lines = [];
-    for (const row of result.rows.filter(row => row.name !== '편도 거리 기준 요금' && row.name !== '요금 단위 조정' && row.amount !== 0)) {
-      const text = row.name + ': ' + (row.amount === null ? '담당자 확인 후 안내' : money(row.amount));
+    for (const row of displayFareRows(result).filter(row => row.amount !== 0)) {
+      const text = (row.name === '편도 거리 기준 요금' ? '거리요금' : row.name) + ': ' + (row.amount === null ? '담당자 확인 후 안내' : money(row.amount));
       const li = document.createElement('li'); li.textContent = text; $('fareBreakdown').append(li);
       lines.push(text);
     }
