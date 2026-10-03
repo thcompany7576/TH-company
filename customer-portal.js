@@ -6,6 +6,9 @@
   let profile = null, partners = [], mode = null, settingsReady = false, thread = null, polling = false;
   let pendingMessage = null, orderAttempt = null, loadingSettings = null, unread = 0;
   const memoryKey = 'th6:threads';
+  let inbox = [], inboxLoading = null;
+  const statusLabels={pending:'영업자 확인 중',approved:'관제 배정 대기',assigned:'기사 배정 완료',completed:'완료',held:'보류'};
+  const account=()=>profile?.contactId||'guest:'+sales;
   const text = (tag, value, className) => { const el = document.createElement(tag); el.textContent = value; if (className) el.className = className; return el; };
   function savedThreads() {
     try { return JSON.parse(localStorage.getItem(memoryKey) || '[]').filter(t => t?.id && /^[a-f0-9]{64}$/.test(t.token) && t.time > Date.now() - 48 * 3600000); } catch { return []; }
@@ -37,7 +40,7 @@
     try { return await loadingSettings; } finally { loadingSettings = null; }
   }
   function showEntry() {
-    mode = null; profile = null; partners = []; thread = null;
+    mode = null; profile = null; partners = []; thread = null;inbox=[];inboxLoading=null;
     for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
     $('chatLog').replaceChildren(); $('partnerList').replaceChildren();
     $('portalEntry').hidden = false; $('portalContent').hidden = true;
@@ -57,7 +60,7 @@
     }
     document.querySelectorAll('.partner-tools').forEach(el => el.hidden = !profile);
     thread = savedThreads().find(t => t.account === (profile?.contactId || 'guest:' + sales)) || null;
-    renderThreadSelector();
+    renderThreadSelector();await refreshInbox();
   }
   function person(forOrder = false) {
     if (profile) return { name: profile.name, phone: profile.phone };
@@ -101,24 +104,53 @@
     $('chatStatus').textContent = data.orderId ? '주문 ' + data.orderId.slice(0, 8) + ' · ' + ({ pending: '영업자 확인 중', approved: '관제 배정 대기', assigned: '기사 배정 완료', completed: '완료', held: '보류', cancelled: '취소' }[data.status] || '문의') : '사무실 문의';
     unread = 0; $('chatUnread').hidden = true;
   }
+  async function refreshInbox() {
+    if(inboxLoading)return inboxLoading;
+    const who=account();
+    inboxLoading=(async()=>{
+      const known=savedThreads().filter(t=>t.account===who);
+      const data=await api.rpc('th6_customer_threads',{p_threads:known.map(t=>({id:t.id,token:t.token}))});
+      if(account()!==who||!mode)return;
+      inbox=data;renderThreadSelector();renderInbox();
+      unread=inbox.reduce((sum,t)=>sum+Number(t.unread||0),0);$('chatUnread').textContent=unread;$('chatUnread').hidden=!unread;
+    })();try{await inboxLoading;}finally{inboxLoading=null;}
+  }
+  function chooseThread(t) {
+    const saved=savedThreads().find(r=>r.id===t.id&&r.account===account());
+    if(!saved&&!profile)throw Error('이 기기의 문의 확인정보가 없습니다.');
+    thread={...t,...saved,id:t.id,orderId:t.orderId,account:account(),token:saved?.token||randomToken(),time:saved?.time||new Date(t.time).getTime()};rememberThread();
+  }
+  function renderInbox() {
+    let root=$('customerOrderList');if(!root){root=text('div','','customer-order-list');root.id='customerOrderList';$('chatThread').before(root);}
+    root.replaceChildren();root.append(text('h3','내 주문 · 문의'));
+    for(const t of inbox){const b=text('button','','customer-order-item secondary');b.type='button';b.setAttribute('aria-current',String(thread?.id===t.id));
+      b.append(text('strong',t.orderId?'주문 '+t.orderId.slice(0,8)+' · '+(statusLabels[t.status]||'접수'):'일반 이용문의'));
+      if(t.orderId){b.append(text('small',(t.locations||[]).map(p=>p.address).join(' → ')));if(Number.isFinite(t.fare))b.append(text('small',t.fare.toLocaleString('ko-KR')+'원'));}
+      b.append(text('small',new Date(t.time).toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit'})));
+      if(t.unread)b.append(text('span','새 알림 '+t.unread,'chat-unread'));
+      b.onclick=async()=>{try{chooseThread(t);await readChat();await refreshInbox();}catch(e){$('chatError').textContent=e.message;}};root.append(b);
+    }
+    if(!inbox.length)root.append(text('p','접수한 주문이나 문의가 없습니다.'));
+  }
   function renderThreadSelector() {
     const select = $('chatThread'); select.replaceChildren();
-    const rows = savedThreads().filter(t => t.account === (profile?.contactId || 'guest:' + sales));
+    const rows = inbox.length?inbox:savedThreads().filter(t => t.account === account());
     for (const t of rows) { const opt = text('option', (t.orderId ? '주문 ' + t.orderId.slice(0, 8) : '문의') + ' · ' + new Date(t.time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })); opt.value = t.id; select.append(opt); }
-    select.hidden = rows.length < 2; if (thread) select.value = thread.id;
+    select.hidden = true; if (thread) select.value = thread.id;
   }
   async function openChat() {
     $('chatError').textContent = ''; $('chatIdentity').hidden = Boolean(profile) || Boolean(thread);
     if (!profile) { const who = person(true); $('chatGuestName').value = thread?.name || who.name; $('chatGuestPhone').value = thread?.phone || who.phone; }
     if (!$('chatDialog').open) $('chatDialog').showModal();
-    if (thread) try { await readChat(); } catch (e) { $('chatError').textContent = e.message; }
+    try { await refreshInbox();if(thread)await readChat();await refreshInbox(); } catch (e) { $('chatError').textContent = e.message; }
     $('chatBody').focus();
   }
   $('chatClose').onclick = () => $('chatDialog').close();
   $('chatOpen').onclick = openChat;
   document.querySelectorAll('[data-open-chat]').forEach(b => b.onclick = openChat);
-  $('chatThread').onchange = async () => { thread = savedThreads().find(t => t.id === $('chatThread').value) || null; try { await readChat(); } catch (e) { $('chatError').textContent = e.message; } };
-  $('chatNew').onclick = () => { thread = null; $('chatLog').replaceChildren(); $('chatStatus').textContent = '새 문의'; $('chatIdentity').hidden = Boolean(profile); $('chatBody').focus(); };
+  $('chatThread').onchange = async () => { try { const t=inbox.find(t=>t.id===$('chatThread').value);if(t)chooseThread(t);await readChat();await refreshInbox(); } catch (e) { $('chatError').textContent = e.message; } };
+  $('chatNew').textContent='일반 이용문의';
+  $('chatNew').onclick = () => { thread = null;renderInbox(); $('chatLog').replaceChildren(); $('chatStatus').textContent = '새 문의'; $('chatIdentity').hidden = Boolean(profile); $('chatBody').focus(); };
   $('chatForm').onsubmit = async e => {
     e.preventDefault(); if (!$('chatBody').value.trim()) return;
     $('chatSend').disabled = true; $('chatError').textContent = '';
@@ -127,7 +159,7 @@
       const body = $('chatBody').value.trim();
       if (!pendingMessage || pendingMessage.body !== body || pendingMessage.thread !== t.id) pendingMessage = { id: crypto.randomUUID(), body, thread: t.id };
       await api.rpc('th6_send_message', { p_thread: t.id, p_token: t.token, p_body: body, p_message: pendingMessage.id });
-      pendingMessage = null; $('chatBody').value = ''; $('chatIdentity').hidden = true; await readChat();
+      pendingMessage = null; $('chatBody').value = ''; $('chatIdentity').hidden = true; await readChat();await refreshInbox();
     } catch (e) { $('chatError').textContent = e.message; }
     finally { $('chatSend').disabled = false; }
   };
@@ -270,7 +302,7 @@
       if (!orderAttempt) orderAttempt = { id: crypto.randomUUID(), thread: t.id, context: { ...t }, summary: summaryText, payload: payload(targetForm) };
       message.textContent = '주문을 접수하고 있습니다…';
       const result = await api.rpc('th6_submit_request', { p_id: orderAttempt.id, p_thread: t.id, p_token: t.token, p_summary: orderAttempt.summary, p_payload: orderAttempt.payload });
-      t.orderId = result.id; thread = t; rememberThread(); orderAttempt = null;
+      t.orderId = result.id; thread = t; rememberThread(); orderAttempt = null;await refreshInbox();
       message.textContent = '주문 요청이 접수되었습니다. 주문번호: ' + result.id + ' · 이용 문의사항에서 답변과 배정 알림을 확인해 주세요.';
       button.textContent = '접수 완료'; targetDoc.getElementById('newOrder').hidden = false;
     } catch (e) {
@@ -310,10 +342,7 @@
     try {
       await refreshSettings();
       if ($('chatDialog').open && thread) await readChat();
-      else if (thread) {
-        unread = await api.rpc('th6_unread', { p_thread: thread.id, p_token: thread.token });
-        $('chatUnread').textContent = unread; $('chatUnread').hidden = !unread;
-      }
+      await refreshInbox();
     } catch (e) { if ($('chatDialog').open) $('chatError').textContent = e.message; }
     finally { polling = false; }
   }

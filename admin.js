@@ -44,6 +44,13 @@
     document.querySelectorAll('[data-client-manager-only]').forEach(e => e.hidden = !clientManager());
     await window.TH_DISPATCH.init(staff,async()=>{notice('새 영업자·관제 메시지가 도착했습니다.');await beep();});
     await loadStaff(); await loadOrders(true); await loadThreads(); baseline = false; pollCursor = null; seenOrders.clear(); seenThreads.clear(); await poll();
+    const target=new URLSearchParams(location.search);
+    if(target.get('thread')&&!owner()){
+      await selectPage('chat');if(threads.some(t=>t.id===target.get('thread')))await openThread(target.get('thread'));
+    } else if(target.get('order')){
+      const found=await api.api('/rest/v1/th6_requests?select=id,status&id=eq.'+encodeURIComponent(target.get('order')));
+      if(found[0]){status=found[0].status;document.querySelector('[data-status="'+status+'"]').click();}
+    }
   }
   $('loginForm').onsubmit = async e => {
     e.preventDefault(); $('loginButton').disabled = true;
@@ -76,16 +83,11 @@
     } catch (e) { notice(e.message); }
   }
   document.querySelectorAll('[data-page]').forEach(b => b.onclick = () => selectPage(b.dataset.page));
-  function dateQuery() {
-    const value = $('orderDate').value; if (!value) return '';
-    const a = new Date(value + 'T00:00:00+09:00'), b = new Date(a.getTime() + 86400000);
-    return '&and=' + encodeURIComponent('(created_at.gte.' + a.toISOString() + ',created_at.lt.' + b.toISOString() + ')');
-  }
   async function loadOrders(reset = false) {
     const stamp = ++generation; $('refresh').disabled = $('more').disabled = true;
     if (reset) { rows = []; offset = 0; }
     try {
-      const data = await api.api('/rest/v1/th6_requests?select=*&status=eq.' + status + dateQuery() + '&order=created_at.desc,id.desc&limit=50&offset=' + offset);
+      const data = await api.api('/rest/v1/th6_requests?select=*&status=eq.' + status + '&order=created_at.desc,id.desc&limit=50&offset=' + offset);
       if (stamp !== generation || !staff) return;
       const ids = new Set(rows.map(r => r.id)); rows.push(...data.filter(r => !ids.has(r.id))); offset += data.length;
       $('more').hidden = data.length < 50; renderOrders(); notice('주문을 확인했습니다.');
@@ -98,33 +100,38 @@
     return body+(r.sales_notes?'\n\n[영업자 전달 특이사항]\n'+r.sales_notes:'');
   }
   function renderOrders() {
-    const q = $('search').value.trim().toLowerCase(), root = $('orders'); root.replaceChildren();
+    $('orderSearch').hidden = !['completed','held'].includes(status);
+    const q = $('orderSearch').hidden ? '' : $('search').value.trim().toLowerCase(), root = $('orders'); root.replaceChildren();
     $('count').textContent = labels[status] + ' ' + rows.length + '건 (불러온 목록) · '+(status==='held'?'보류 후 48시간 내 복구 가능':'48시간 보관 · 복구 시 보관 시간 갱신');
     const selected = rows.filter(r => (r.summary + ' ' + r.id).toLowerCase().includes(q));
     if (!selected.length) root.append(text('p', q ? '검색 결과가 없습니다.' : labels[status] + ' 주문이 없습니다.'));
     for (const r of selected) {
       const card = text('article', '', 'order-card'), head = text('div', '', 'section-head');
-      head.append(text('h3', '주문 ' + r.id.slice(0, 8)), text('span', labels[r.status], 'tag')); card.append(head);
+      card.dataset.orderId=r.id;
+      head.append(text('h3', (r.payload?.requester?.name||r.payload?.company||'고객')+' · 주문 ' + r.id.slice(0, 8)), text('span', labels[r.status], 'tag')); card.append(head);
       const who = r.payload?.requester;
-      card.append(text('p', (r.payload?.company ? r.payload.company + ' · ' : '비로그인 고객 · ') + (who ? who.name + ' / ' + who.phone : '이전 주문')));
-      card.append(text('p', koreaTime(r.created_at) + ' 접수', 'portal-note'));
-      if(r.status==='held')card.append(text('p','자동 취소·삭제 예정: '+koreaTime(r.expires_at),'portal-note'));
+      const extra=text('details','','order-extra');extra.append(text('summary','상세 보기 · 연락처 / 주문 내용'));
+      extra.append(text('p', (r.payload?.company ? r.payload.company + ' · ' : '비로그인 고객 · ') + (who ? who.name + ' / ' + who.phone : '이전 주문')));
+      extra.append(text('p', koreaTime(r.created_at) + ' 접수', 'portal-note'));
+      if(r.status==='held')extra.append(text('p','자동 취소·삭제 예정: '+koreaTime(r.expires_at),'portal-note'));
       const locations = r.payload?.locations;
       if (locations?.length) {
-        const grid = text('div', '', 'review-locations');
+        const grid = text('div', '', 'order-route');
         for (const p of locations) {
-          const item = text('div', '', 'review-location'); item.append(text('h3', p.label), text('p', p.address), text('p', p.detail || ''), text('p', p.person + ' · ' + p.phone)); grid.append(item);
+          grid.append(text('p',p.label+'　'+p.address));extra.append(text('p',p.label+' · '+[p.address,p.detail,p.person,p.phone].filter(Boolean).join(' · ')));
         }
         card.append(grid);
       }
-      const details = text('details', ''), summary = text('summary', '전체 주문 내용'), pre = text('pre', r.summary); details.append(summary, pre); card.append(details);
+      const details = text('details', ''), summary = text('summary', '전체 주문 내용'), pre = text('pre', r.summary); details.append(summary, pre); extra.append(details);
       const autoFare=r.payload?.quote?.total;
-      if(Number.isFinite(autoFare))card.append(text('p','접수 시 예상 운행요금: '+autoFare.toLocaleString('ko-KR')+'원','portal-note'));
+      if(Number.isFinite(autoFare))extra.append(text('p','접수 시 예상 운행요금: '+autoFare.toLocaleString('ko-KR')+'원','portal-note'));
       const displayFare=r.agreed_fare??autoFare;
-      if(r.agreed_fare!=null){card.append(text('h3',(r.fare_checked_at?'관제 확인 운행요금: ':'조정 운행요금 (관제 확인 대기): ')+r.agreed_fare.toLocaleString('ko-KR')+'원'),text('p','조정 사유: '+r.fare_reason));}
-      if(!owner()&&r.staff_id===staff.user_id&&Number.isFinite(displayFare))card.append(text('p',(r.agreed_fare!=null&&r.fare_checked_at||r.status==='assigned'||r.status==='completed'?'내 수익':'내 예상 수익')+': '+Math.round(displayFare*0.04).toLocaleString('ko-KR')+'원 (영업자 4% · 별도 보증금 제외)','portal-note'));
+      if(Number.isFinite(displayFare))card.append(text('h3','운행요금 '+displayFare.toLocaleString('ko-KR')+'원'+(r.agreed_fare!=null&&!r.fare_checked_at?' · 관제 확인 필요':''),'order-fare'));
+      if(r.fare_reason)extra.append(text('p','조정 사유: '+r.fare_reason));
+      if(!owner()&&r.staff_id===staff.user_id&&Number.isFinite(displayFare))extra.append(text('p',(r.agreed_fare!=null&&r.fare_checked_at||r.status==='assigned'||r.status==='completed'?'내 수익':'내 예상 수익')+': '+Math.round(displayFare*0.04).toLocaleString('ko-KR')+'원 (영업자 4% · 별도 보증금 제외)','portal-note'));
       const actions = text('div', '', 'actions');
-      actions.append(button('코리아센터 입력용 내용 복사', async () => { try { await navigator.clipboard.writeText(officeOrderText(r)); notice('복사했습니다. 코리아센터에 직접 입력해 주세요.'); } catch { notice('복사하지 못했습니다. 전체 주문 내용을 선택해서 복사해 주세요.'); } }));
+      const secondaryActions=text('div','','actions');
+      secondaryActions.append(button('코리아센터 입력용 내용 복사', async () => { try { await navigator.clipboard.writeText(officeOrderText(r)); notice('복사했습니다. 코리아센터에 직접 입력해 주세요.'); } catch { notice('복사하지 못했습니다. 전체 주문 내용을 선택해서 복사해 주세요.'); } }));
       if(owner()&&r.status==='approved'&&r.agreed_fare!=null&&!r.fare_checked_at){
         const check=button('조정 요금 확인 · 배정 승인',async()=>{if(!confirm(r.agreed_fare.toLocaleString('ko-KR')+'원과 조정 사유를 확인했나요? 확인 후 기사 배정이 가능합니다.'))return;check.disabled=true;try{await api.rpc('th6_confirm_fare',{p_id:r.id,p_fare:r.agreed_fare});await loadOrders(true);notice('조정 요금을 확인했습니다. 기사 배정을 진행해 주세요.');}catch(e){notice(e.message);check.disabled=false;}},'');actions.append(check);
       }
@@ -135,34 +142,35 @@
           if (!confirm(question)) return; b.disabled = true;
           try { await api.rpc('th6_set_status', { p_id: r.id, p_status: next }); await loadOrders(true); notice('주문을 ' + (next==='restore'?'다시 진행':labels[next]) + ' 처리했습니다.'); }
           catch (e) { notice(e.message); b.disabled = false; }
-        }, next === 'held' ? 'secondary' : next === 'assigned' ? '' : 'secondary'); if(next==='assigned'&&r.agreed_fare!=null&&!r.fare_checked_at){b.disabled=true;b.title='조정 요금을 먼저 확인해 주세요.';} actions.append(b);
+        }, next === 'held' ? 'secondary' : next === 'assigned' ? '' : 'secondary'); if(next==='assigned'&&r.agreed_fare!=null&&!r.fare_checked_at){b.disabled=true;b.title='조정 요금을 먼저 확인해 주세요.';} (next==='held'?secondaryActions:actions).append(b);
       }
-      if(r.approved_at){card.append(text('p','영업자 승인: '+koreaTime(r.approved_at),'portal-note'));card.append(text('h3','관제 전달 특이사항'),text('p',r.sales_notes||'특이사항 없음'));}
+      if(r.approved_at)extra.append(text('p','영업자 승인: '+koreaTime(r.approved_at),'portal-note'));
+      if(r.sales_notes)card.append(text('p','특이사항 · '+r.sales_notes,'order-note'));
       if(r.status==='pending'&&!owner()){
-        const label=text('label','관제 전달 특이사항'),notes=document.createElement('textarea');notes.maxLength=2000;notes.placeholder='관제·기사에게 전달할 내용을 적어 주세요. 없으면 비워 두세요.';label.append(notes);card.append(label);
+        const label=text('label','관제 전달 특이사항'),notes=document.createElement('textarea');notes.maxLength=2000;notes.placeholder='관제·기사에게 전달할 내용을 적어 주세요. 없으면 비워 두세요.';label.append(notes);extra.append(label);
         const adjustment=text('details',''),title=text('summary','예외 지역 · 요금 조정 (필요한 경우)');adjustment.append(title);
         const enabled=document.createElement('input');enabled.type='checkbox';const toggle=text('label','');toggle.className='inline';toggle.append(enabled,text('span','운행요금 조정'));adjustment.append(toggle);
         const fields=document.createElement('fieldset');fields.hidden=true;fields.disabled=true;
         const price=document.createElement('input');price.type='number';price.min='1';price.max='2000000';price.step='1';price.inputMode='numeric';price.required=true;if(Number.isFinite(autoFare))price.value=autoFare;
         const priceLabel=text('label','고객과 확인한 총 운행요금 (원 · 보증금 제외)');priceLabel.append(price);
-        const reason=document.createElement('textarea');reason.required=true;reason.maxLength=2000;reason.placeholder='예: 외곽 지역, 기사 복귀 거리 등';const reasonLabel=text('label','요금 조정 사유');reasonLabel.append(reason);
+        const reason=document.createElement('textarea');reason.maxLength=2000;reason.placeholder='고객 합의';const reasonLabel=text('label','요금 조정 사유 (선택)');reasonLabel.append(reason);
         const consent=document.createElement('input');consent.type='checkbox';consent.required=true;const consentLabel=text('label','');consentLabel.className='inline';consentLabel.append(consent,text('span','고객과 조정 운행요금을 확인했습니다.'));
-        fields.append(priceLabel,reasonLabel,consentLabel);adjustment.append(fields);card.append(adjustment);
+        fields.append(priceLabel,reasonLabel,consentLabel);adjustment.append(fields);extra.append(adjustment);
         enabled.onchange=()=>{fields.hidden=fields.disabled=!enabled.checked;};
         const approve=button('주문 승인 · 관제로 전달',async()=>{
-          if(enabled.checked&&(!price.reportValidity()||!reason.value.trim()||!consent.checked)){notice('조정 요금·사유를 입력하고 고객 확인에 체크해 주세요.');return;}
+          if(enabled.checked&&(!price.reportValidity()||!consent.checked)){notice('조정 요금을 입력하고 고객 확인에 체크해 주세요.');return;}
           if(!confirm('주문 내용과 요청 방식을 확인했나요? 승인하면 관제에 전달됩니다.'))return;
           approve.disabled=true;try{await api.rpc('th6_approve_with_fare',{p_id:r.id,p_notes:notes.value,p_fare:enabled.checked?Number(price.value):null,p_reason:enabled.checked?reason.value:'',p_customer_confirmed:enabled.checked&&consent.checked});await loadOrders(true);notice('승인한 주문을 관제로 전달했습니다.');}catch(e){notice(e.message);approve.disabled=false;}
         },'');actions.prepend(approve);
       }
-      card.append(actions); root.append(card);
+      extra.append(secondaryActions);card.append(actions,extra); root.append(card);
     }
   }
   document.querySelectorAll('[data-status]').forEach(b => b.onclick = () => {
     status = b.dataset.status; $('search').value = '';
     document.querySelectorAll('[data-status]').forEach(other => { const active = other === b; other.className = active ? '' : 'secondary'; other.setAttribute('aria-pressed', String(active)); }); loadOrders(true);
   });
-  $('refresh').onclick = () => loadOrders(true); $('more').onclick = () => loadOrders(false); $('search').oninput = renderOrders; $('orderDate').onchange = () => loadOrders(true);
+  $('refresh').onclick = () => loadOrders(true); $('more').onclick = () => loadOrders(false); $('search').oninput = renderOrders;
   async function loadStaff() {
     staffRows = await api.api('/rest/v1/th6_staff?select=*&deleted_at=is.null&order=name.asc');
     $('clientStaff').replaceChildren(); $('staffList').replaceChildren();
@@ -340,14 +348,21 @@
     catch(e) { c.checked=!c.checked;notice(e.message); } finally { c.disabled=false; }
   });
   async function loadThreads() {
-    threads=await api.api('/rest/v1/th6_threads?select=id,name,phone,updated_at,last_customer_at,admin_read_at&order=updated_at.desc&limit=100');
+    threads=await api.rpc('th6_sales_inbox');
     $('threadList').replaceChildren();
-    for(const t of threads) { const b=button(t.name+' · '+t.phone,()=>openThread(t.id),'thread-item secondary'); $('threadList').append(b); }
+    for(const t of threads) {
+      const r=t.order,loc=r?.payload?.locations||[];
+      const b=button(t.name+' · '+(r?'주문 '+r.id.slice(0,8):'일반 이용문의'),()=>openThread(t.id),'thread-item secondary');
+      if(r)b.append(text('small',loc.map(p=>p.address).join(' → ')||labels[r.status]));
+      if(t.unread)b.append(text('span','새 알림 '+t.unread,'badge'));
+      $('threadList').append(b);
+    }
     if(!threads.length) $('threadList').append(text('p','문의가 없습니다.'));
   }
   async function openThread(id) {
     currentThread=id;$('adminChat').hidden=false;$('chatTitle').textContent=threads.find(t=>t.id===id)?.name||'고객 문의';
-    $('chatPhone').textContent=threads.find(t=>t.id===id)?.phone||'';
+    const selected=threads.find(t=>t.id===id);if(selected?.order)$('chatTitle').textContent+=' · 주문 '+selected.order.id.slice(0,8);
+    $('chatPhone').textContent=selected?.phone||'';
     await readAdminChat();
   }
   $('chatRefresh').onclick = () => loadThreads().catch(e => notice(e.message));
@@ -373,14 +388,15 @@
       const result=await api.rpc('th6_admin_events',{p_since:pollCursor});
       const orders=result.orders||[],incoming=result.threads||[];
       const newOrder=baseline&&orders.some(o=>!seenOrders.has(o.id));
-      const newMessage=baseline&&incoming.some(t=>t.last_customer_at&&seenThreads.get(t.id)?.customer!==t.last_customer_at);
+      const newMessage=baseline&&incoming.some(t=>(t.last_customer_at&&seenThreads.get(t.id)?.customer!==t.last_customer_at)||(t.last_staff_event_at&&seenThreads.get(t.id)?.progress!==t.last_staff_event_at));
       const orderChanged=orders.some(o=>seenOrders.get(o.id)!==o.updated_at),chatChanged=incoming.some(t=>seenThreads.get(t.id)?.updated!==t.updated_at);
-      for(const o of orders)seenOrders.set(o.id,o.updated_at);for(const t of incoming)seenThreads.set(t.id,{customer:t.last_customer_at,updated:t.updated_at});
+      for(const o of orders)seenOrders.set(o.id,o.updated_at);for(const t of incoming)seenThreads.set(t.id,{customer:t.last_customer_at,progress:t.last_staff_event_at,updated:t.updated_at});
       pollCursor=result.cursor;baseline=true;
       if(newOrder||newMessage){notice(newOrder?'새 주문이 도착했습니다.':'새 문의가 도착했습니다.');await beep();}
       if(page==='settings'&&owner())await loadSettings();
       if(orderChanged&&page==='orders')await loadOrders(true);
       if(chatChanged&&page==='chat'){await loadThreads();if(currentThread)await readAdminChat();}
+      $('orderUnread').textContent=result.pending||'';$('orderUnread').hidden=!result.pending;
       $('unreadCount').textContent=result.unread||'';$('unreadCount').hidden=!result.unread;
     }catch(e){notice('새 주문 확인 중 연결 오류: '+e.message);}finally{polling=false;}
   }
