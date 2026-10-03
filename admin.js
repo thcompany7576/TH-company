@@ -414,7 +414,7 @@
       if(newOrder||newMessage){notice(newOrder?'새 주문이 도착했습니다.':'새 문의가 도착했습니다.');await beep(newOrder?(owner()?'approved':'order'):'message');}
       if(page==='settings'&&owner())await loadSettings();
       if(orderChanged&&page==='orders')await loadOrders(true);
-      if(chatChanged&&page==='chat'){await loadThreads();if(currentThread)await readAdminChat();}
+      if((chatChanged||orderChanged)&&page==='chat'){await loadThreads();if(currentThread)await readAdminChat();result.unread=threads.filter(t=>t.unread).length;}
       showOrderWaitingCount(result.pending||0);
       $('unreadCount').textContent=result.unread||'';$('unreadCount').hidden=!result.unread;
     }catch(e){notice('새 주문 확인 중 연결 오류: '+e.message);}finally{polling=false;}
