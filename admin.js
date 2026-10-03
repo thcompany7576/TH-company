@@ -11,6 +11,7 @@
   const text = (tag, value, cls) => { const e = document.createElement(tag); e.textContent = value; if (cls) e.className = cls; return e; };
   const button = (value, action, cls = 'secondary') => { const e = text('button', value, cls); e.type = 'button'; e.onclick = action; return e; };
   const notice = value => $('notice').textContent = value;
+  const orderNumber=r=>String(r.order_number||'확인 중');
   const owner = () => staff?.role === 'owner';
   const representative = () => Boolean(staff?.is_representative);
   const clientManager = () => representative() || staff?.role === 'sales';
@@ -103,18 +104,18 @@
   function officeOrderText(r) {
     let body=r.summary;
     if(r.agreed_fare!==null&&r.agreed_fare!==undefined){body=body.replace(/최종 요금:([^\n]*)/g,'접수 시 예상요금:$1');body+='\n\n[조정 운행요금] '+r.agreed_fare.toLocaleString('ko-KR')+'원'+(r.fare_reason?'\n조정 사유: '+r.fare_reason:'')+'\n관제 확인: '+(r.fare_checked_at?'완료':'대기');}
-    return body+(r.sales_notes?'\n\n[영업자 전달 특이사항]\n'+r.sales_notes:'');
+    return '[주문 '+orderNumber(r)+']\n'+body+(r.sales_notes?'\n\n[영업자 전달 특이사항]\n'+r.sales_notes:'');
   }
   function renderOrders() {
     $('orderSearch').hidden = !['completed','held'].includes(status);
     const q = $('orderSearch').hidden ? '' : $('search').value.trim().toLowerCase(), root = $('orders'); root.replaceChildren();
     $('count').textContent = labels[status] + ' ' + rows.length + '건 (불러온 목록) · '+(status==='held'?'보류 후 48시간 내 복구 가능':'48시간 보관 · 복구 시 보관 시간 갱신');
-    const selected = rows.filter(r => (r.summary + ' ' + r.id).toLowerCase().includes(q));
+    const selected = rows.filter(r => (r.summary + ' ' + orderNumber(r)).toLowerCase().includes(q));
     if (!selected.length) root.append(text('p', q ? '검색 결과가 없습니다.' : labels[status] + ' 주문이 없습니다.'));
     for (const r of selected) {
       const card = text('article', '', 'order-card'), head = text('div', '', 'section-head');
       card.dataset.orderId=r.id;
-      head.append(text('h3', (r.payload?.requester?.name||r.payload?.company||'고객')+' · 주문 ' + r.id.slice(0, 8)), text('span', labels[r.status], 'tag')); card.append(head);
+      head.append(text('h3', (r.payload?.requester?.name||r.payload?.company||'고객')+' · 주문 ' + orderNumber(r)), text('span', labels[r.status], 'tag')); card.append(head);
       const who = r.payload?.requester;
       const extra=text('details','','order-extra');extra.append(text('summary','상세 보기 · 연락처 / 주문 내용'));
       extra.append(text('p', (r.payload?.company ? r.payload.company + ' · ' : '비로그인 고객 · ') + (who ? who.name + ' / ' + who.phone : '이전 주문')));
@@ -358,7 +359,7 @@
     $('threadList').replaceChildren();
     for(const t of threads) {
       const r=t.order,loc=r?.payload?.locations||[];
-      const b=button((owner()?t.staffName+' 담당 · ':'')+t.name+' · '+(r?'주문 '+r.id.slice(0,8):'일반 이용문의'),()=>openThread(t.id),'thread-item secondary');
+      const b=button((owner()?t.staffName+' 담당 · ':'')+t.name+' · '+(r?'주문 '+orderNumber(r):'일반 이용문의'),()=>openThread(t.id),'thread-item secondary');
       b.dataset.threadId=t.id;
       if(r)b.append(text('small',loc.map(p=>p.address).join(' → ')||labels[r.status]));
       if(t.unread)b.append(text('span','새 알림 '+t.unread,'badge'));
@@ -368,7 +369,7 @@
   }
   async function openThread(id) {
     currentThread=id;$('adminChat').hidden=false;$('chatTitle').textContent=threads.find(t=>t.id===id)?.name||'고객 문의';
-    const selected=threads.find(t=>t.id===id);if(selected?.order)$('chatTitle').textContent+=' · 주문 '+selected.order.id.slice(0,8);
+    const selected=threads.find(t=>t.id===id);if(selected?.order)$('chatTitle').textContent+=' · 주문 '+orderNumber(selected.order);
     $('chatPhone').textContent=selected?.phone||'';
     await readAdminChat();
   }

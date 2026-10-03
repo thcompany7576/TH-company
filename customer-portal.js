@@ -7,6 +7,7 @@
   let pendingMessage = null, orderAttempt = null, loadingSettings = null, unread = 0;
   const memoryKey = 'th6:threads';
   let inbox = [], inboxLoading = null, inboxBaseline=false;
+  const orderNumber=t=>String(t.orderNumber||'확인 중');
   const statusLabels={pending:'영업자 확인 중',approved:'관제 배정 대기',assigned:'기사 배정 완료',completed:'완료',held:'보류'};
   const account=()=>profile?.contactId||'guest:'+sales;
   const text = (tag, value, className) => { const el = document.createElement(tag); el.textContent = value; if (className) el.className = className; return el; };
@@ -105,7 +106,7 @@
     const stamp = thread.id;
     const data = await api.rpc('th6_read_thread', { p_thread: thread.id, p_token: thread.token });
     if (stamp !== thread?.id) return;
-    if (data.orderId) { thread.orderId = data.orderId; rememberThread(); }
+    if (data.orderId) { thread.orderId = data.orderId;thread.orderNumber=data.orderNumber; rememberThread(); }
     const log = $('chatLog'), atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
     log.replaceChildren();
     for (const message of data.messages || []) {
@@ -115,7 +116,7 @@
     }
     if (!log.children.length) log.append(text('p', '문의사항을 남겨 주세요. 사무실에서 확인 후 답변합니다.', 'muted'));
     if (atBottom) log.scrollTop = log.scrollHeight;
-    $('chatStatus').textContent = data.orderId ? '주문 ' + data.orderId.slice(0, 8) + ' · ' + ({ pending: '영업자 확인 중', approved: '관제 배정 대기', assigned: '기사 배정 완료', completed: '완료', held: '보류', cancelled: '취소' }[data.status] || '문의') : '사무실 문의';
+    $('chatStatus').textContent = data.orderId ? '주문 ' + orderNumber(data) + ' · ' + ({ pending: '영업자 확인 중', approved: '관제 배정 대기', assigned: '기사 배정 완료', completed: '완료', held: '보류', cancelled: '취소' }[data.status] || '문의') : '사무실 문의';
     $('chatForm').hidden=data.status==='completed';
     if(data.status==='completed')log.append(text('p','완료된 주문의 대화는 정리되었습니다. 추가 문의는 일반 이용문의를 이용해 주세요.'));
     unread = 0; $('chatUnread').hidden = true;
@@ -138,14 +139,14 @@
   function chooseThread(t) {
     const saved=savedThreads().find(r=>r.id===t.id&&r.account===account());
     if(!saved&&!profile)throw Error('이 기기의 문의 확인정보가 없습니다.');
-    thread={...t,...saved,id:t.id,orderId:t.orderId,name:t.name,phone:t.phone,account:account(),token:saved?.token||randomToken(),time:saved?.time||new Date(t.time).getTime()};rememberThread();
+    thread={...t,...saved,id:t.id,orderId:t.orderId,orderNumber:t.orderNumber,name:t.name,phone:t.phone,account:account(),token:saved?.token||randomToken(),time:saved?.time||new Date(t.time).getTime()};rememberThread();
     $('chatIdentity').hidden=true;$('chatGuestName').value=thread.name||'';$('chatGuestPhone').value=thread.phone||'';
   }
   function renderInbox() {
     let root=$('customerOrderList');if(!root){root=text('div','','customer-order-list');root.id='customerOrderList';$('chatThread').before(root);}
     root.replaceChildren();root.append(text('h3','내 주문 · 문의'));
     for(const t of inbox){const b=text('button','','customer-order-item secondary');b.type='button';b.setAttribute('aria-current',String(thread?.id===t.id));
-      b.append(text('strong',t.orderId?'주문 '+t.orderId.slice(0,8)+' · '+(statusLabels[t.status]||'접수'):'일반 이용문의'));
+      b.append(text('strong',t.orderId?'주문 '+orderNumber(t)+' · '+(statusLabels[t.status]||'접수'):'일반 이용문의'));
       if(t.orderId){b.append(text('small',(t.locations||[]).map(p=>p.address).join(' → ')));if(Number.isFinite(t.fare))b.append(text('small',t.fare.toLocaleString('ko-KR')+'원'));}
       b.append(text('small',new Date(t.time).toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit'})));
       if(t.unread)b.append(text('span','새 알림 '+t.unread,'chat-unread'));
@@ -156,7 +157,7 @@
   function renderThreadSelector() {
     const select = $('chatThread'); select.replaceChildren();
     const rows = inbox.length?inbox:savedThreads().filter(t => t.account === account());
-    for (const t of rows) { const opt = text('option', (t.orderId ? '주문 ' + t.orderId.slice(0, 8) : '문의') + ' · ' + new Date(t.time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })); opt.value = t.id; select.append(opt); }
+    for (const t of rows) { const opt = text('option', (t.orderId ? '주문 ' + orderNumber(t) : '문의') + ' · ' + new Date(t.time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })); opt.value = t.id; select.append(opt); }
     select.hidden = true; if (thread) select.value = thread.id;
   }
   async function openChat() {
@@ -327,8 +328,8 @@
       if (!orderAttempt) orderAttempt = { id: crypto.randomUUID(), thread: t.id, context: { ...t }, summary: summaryText, payload: payload(targetForm) };
       message.textContent = '주문을 접수하고 있습니다…';
       const result = await api.rpc('th6_submit_request', { p_id: orderAttempt.id, p_thread: t.id, p_token: t.token, p_summary: orderAttempt.summary, p_payload: orderAttempt.payload });
-      t.orderId = result.id; thread = t; rememberThread(); orderAttempt = null;await refreshInbox();
-      message.textContent = '주문 요청이 접수되었습니다. 주문번호: ' + result.id + ' · 이용 문의사항에서 답변과 배정 알림을 확인해 주세요.';
+      t.orderId = result.id;t.orderNumber=result.orderNumber; thread = t; rememberThread(); orderAttempt = null;await refreshInbox();
+      message.textContent = '주문 요청이 접수되었습니다. 주문번호: ' + orderNumber(result) + ' · 이용 문의사항에서 답변과 배정 알림을 확인해 주세요.';
       button.textContent = '접수 완료'; targetDoc.getElementById('newOrder').hidden = false;
     } catch (e) {
       if(e.message.includes('야간요금 적용 시간이 변경되었습니다.')){orderAttempt=null;await refreshSettings().catch(()=>{});}

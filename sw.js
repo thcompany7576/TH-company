@@ -1,5 +1,5 @@
 'use strict';
-const VERSION = 'th6-20261003-followup1';
+const VERSION = 'th6-20261003-shortnumber1';
 const shell = ['order.html','admin.html','config.js','portal-api.js','customer-portal.js','address-picker.js','admin.js','admin-push.js','voice-notifications.js','dispatch-chat.js','portal.css','admin.css','th-theme.css','pwa.js','pwa-route.js','order.webmanifest','admin.webmanifest','icon-192.png','icon-512.png'];
 self.addEventListener('install', event => event.waitUntil(caches.open(VERSION).then(cache => cache.addAll(shell.map(path=>new Request(path,{cache:'reload'})))).then(()=>self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('th6-') && key !== VERSION).map(key => caches.delete(key)))).then(()=>self.clients.claim())));
