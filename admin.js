@@ -48,8 +48,13 @@
     if(target.get('thread')&&!owner()){
       await selectPage('chat');if(threads.some(t=>t.id===target.get('thread')))await openThread(target.get('thread'));
     } else if(target.get('order')){
-      const found=await api.api('/rest/v1/th6_requests?select=id,status&id=eq.'+encodeURIComponent(target.get('order')));
-      if(found[0]){status=found[0].status;document.querySelector('[data-status="'+status+'"]').click();}
+      const found=await api.api('/rest/v1/th6_requests?select=*&id=eq.'+encodeURIComponent(target.get('order')));
+      if(found[0]){
+        status=found[0].status;
+        document.querySelectorAll('[data-status]').forEach(b=>{const active=b.dataset.status===status;b.className=active?'':'secondary';b.setAttribute('aria-pressed',String(active));});
+        await loadOrders(true);if(!rows.some(r=>r.id===found[0].id)){rows.unshift(found[0]);renderOrders();}
+        const card=[...$('orders').children].find(e=>e.dataset.orderId===found[0].id);if(card){card.classList.add('order-focus');card.scrollIntoView({block:'center'});}
+      }
     }
   }
   $('loginForm').onsubmit = async e => {
@@ -96,7 +101,7 @@
   }
   function officeOrderText(r) {
     let body=r.summary;
-    if(r.agreed_fare!==null&&r.agreed_fare!==undefined){body=body.replace(/최종 요금:([^\n]*)/g,'접수 시 예상요금:$1');body+='\n\n[조정 운행요금] '+r.agreed_fare.toLocaleString('ko-KR')+'원\n조정 사유: '+r.fare_reason+'\n관제 확인: '+(r.fare_checked_at?'완료':'대기');}
+    if(r.agreed_fare!==null&&r.agreed_fare!==undefined){body=body.replace(/최종 요금:([^\n]*)/g,'접수 시 예상요금:$1');body+='\n\n[조정 운행요금] '+r.agreed_fare.toLocaleString('ko-KR')+'원'+(r.fare_reason?'\n조정 사유: '+r.fare_reason:'')+'\n관제 확인: '+(r.fare_checked_at?'완료':'대기');}
     return body+(r.sales_notes?'\n\n[영업자 전달 특이사항]\n'+r.sales_notes:'');
   }
   function renderOrders() {
@@ -133,7 +138,7 @@
       const secondaryActions=text('div','','actions');
       secondaryActions.append(button('코리아센터 입력용 내용 복사', async () => { try { await navigator.clipboard.writeText(officeOrderText(r)); notice('복사했습니다. 코리아센터에 직접 입력해 주세요.'); } catch { notice('복사하지 못했습니다. 전체 주문 내용을 선택해서 복사해 주세요.'); } }));
       if(owner()&&r.status==='approved'&&r.agreed_fare!=null&&!r.fare_checked_at){
-        const check=button('조정 요금 확인 · 배정 승인',async()=>{if(!confirm(r.agreed_fare.toLocaleString('ko-KR')+'원과 조정 사유를 확인했나요? 확인 후 기사 배정이 가능합니다.'))return;check.disabled=true;try{await api.rpc('th6_confirm_fare',{p_id:r.id,p_fare:r.agreed_fare});await loadOrders(true);notice('조정 요금을 확인했습니다. 기사 배정을 진행해 주세요.');}catch(e){notice(e.message);check.disabled=false;}},'');actions.append(check);
+        const check=button('조정 요금 확인 · 배정 승인',async()=>{if(!confirm('운행요금 '+r.agreed_fare.toLocaleString('ko-KR')+'원을 확인했나요? 확인 후 기사 배정이 가능합니다.'))return;check.disabled=true;try{await api.rpc('th6_confirm_fare',{p_id:r.id,p_fare:r.agreed_fare});await loadOrders(true);notice('조정 요금을 확인했습니다. 기사 배정을 진행해 주세요.');}catch(e){notice(e.message);check.disabled=false;}},'');actions.append(check);
       }
       if (r.thread_id && !owner()) actions.append(button('고객 문의 / 답변', async () => { await selectPage('chat'); await openThread(r.thread_id); }));
       for (const next of owner() ? (r.status==='approved'?['assigned','held']:r.status==='assigned'?['completed','held']:r.status==='held'?['restore']:[]) : (r.status==='pending'?['held']:r.status==='held'&&r.held_from==='pending'?['restore']:[])) {
@@ -353,6 +358,7 @@
     for(const t of threads) {
       const r=t.order,loc=r?.payload?.locations||[];
       const b=button(t.name+' · '+(r?'주문 '+r.id.slice(0,8):'일반 이용문의'),()=>openThread(t.id),'thread-item secondary');
+      b.dataset.threadId=t.id;
       if(r)b.append(text('small',loc.map(p=>p.address).join(' → ')||labels[r.status]));
       if(t.unread)b.append(text('span','새 알림 '+t.unread,'badge'));
       $('threadList').append(b);
@@ -373,6 +379,9 @@
     $('adminChatLog').replaceChildren();
     for(const m of data) { const b=text('div',m.body,'chat-bubble '+m.sender);b.append(text('time',koreaTime(m.created_at)));$('adminChatLog').append(b); }
     await api.rpc('th6_admin_read',{p_thread:id});
+    const t=threads.find(t=>t.id===id);if(t)t.unread=0;
+    const item=[...$('threadList').children].find(e=>e.dataset.threadId===id);if(item?.querySelector('.badge'))item.querySelector('.badge').hidden=true;
+    const remaining=threads.filter(t=>t.unread).length;$('unreadCount').textContent=remaining||'';$('unreadCount').hidden=!remaining;
   }
   $('replyForm').onsubmit=async e=> {
     e.preventDefault();if(!currentThread||!$('replyBody').value.trim())return;$('replySend').disabled=true;
