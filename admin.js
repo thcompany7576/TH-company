@@ -5,6 +5,7 @@
   let status = 'pending', page = 'orders', offset = 0, generation = 0, currentThread = null, currentClient = null;
   let replyAttempt = null, resetContact = null, polling = false, seenOrders = new Map(), seenThreads = new Map(), baseline = false;
   
+  let threadPage=0, threadOpener=null; const replyDrafts=new Map(), threadPageSize=14;
   let creatingControl = false;
   let pollCursor = null;
   const labels = { pending: '영업자 확인 중', approved: '관제 배정 대기', assigned: '배정 완료', completed: '완료', held: '보류', cancelled: '취소' };
@@ -73,10 +74,11 @@
       $('adminTitle').textContent = 'TH company';
       for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
       $('orders').replaceChildren(); $('clientList').replaceChildren(); $('adminChatLog').replaceChildren(); $('threadList').replaceChildren();
-    if(currentThread&&!threads.some(t=>t.id===currentThread)){currentThread=null;$('adminChat').hidden=true;$('adminChatLog').replaceChildren();}
+    currentThread=null;replyDrafts.clear();$('replyBody').value='';$('adminChatLog').replaceChildren();
     }
   });
   async function selectPage(value) {
+    if(value!==page&&$('inquiryDialog').open)$('inquiryDialog').close();
     page = value;
     for (const b of document.querySelectorAll('[data-page]')) { const selected = b.dataset.page === page; if (selected) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
     for (const value of ['orders', 'clients', 'chat', 'dispatch', 'settings', 'staff']) $('page-' + value).hidden = value !== page;
@@ -354,42 +356,81 @@
     c.disabled=true; try { await api.rpc('th6_set_service',{p_service:c.dataset.service,p_enabled:c.checked}); notice('서비스 설정을 저장했습니다.'); }
     catch(e) { c.checked=!c.checked;notice(e.message); } finally { c.disabled=false; }
   });
-  async function loadThreads() {
-    threads=await api.rpc(owner()?'th6_monitor_inbox':'th6_sales_inbox');
+  function drawThreads() {
+    threadPage=Math.min(threadPage,Math.max(0,Math.ceil(threads.length/threadPageSize)-1));
     $('threadList').replaceChildren();
-    for(const t of threads) {
-      const r=t.order,loc=r?.payload?.locations||[];
-      const b=button((owner()?t.staffName+' 담당 · ':'')+t.name+' · '+(r?'주문 '+orderNumber(r):'일반 이용문의'),()=>openThread(t.id),'thread-item secondary');
-      b.dataset.threadId=t.id;
-      if(r)b.append(text('small',loc.map(p=>p.address).join(' → ')||labels[r.status]));
-      if(t.unread)b.append(text('span','새 알림 '+t.unread,'badge'));
+    const start=threadPage*threadPageSize;
+    for(const t of threads.slice(start,start+threadPageSize)) {
+      const r=t.order;
+      const b=button('',()=>openThread(t.id).catch(e=>notice(e.message)),'thread-item inquiry-item'+(t.unread?' unread':''));
+      b.dataset.threadId=t.id;b.setAttribute('aria-haspopup','dialog');
+      const top=text('span','','inquiry-top');top.append(text('strong',t.name));
+      if(t.unread)top.append(text('span',String(t.unread),'badge'));
+      top.append(text('time',new Date(t.updated_at).toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false})));
+      b.append(top,text('span',t.last_body||'대화를 열어 내용을 확인하세요.','inquiry-preview'));
+      b.append(text('small',(r?'주문 '+orderNumber(r):'일반 이용문의')+' · '+(owner()?t.staffName:staff.name)+' 담당'));
       $('threadList').append(b);
     }
-    if(!threads.length) $('threadList').append(text('p','문의가 없습니다.'));
+    if(!threads.length)$('threadList').append(text('p','문의가 없습니다.'));
+    $('threadCount').textContent=threads.length?(start+1)+'–'+Math.min(start+threadPageSize,threads.length)+' / '+threads.length+'건':'';
+    $('threadPrev').disabled=threadPage===0;$('threadNext').disabled=start+threadPageSize>=threads.length;
   }
+  $('threadPrev').onclick=()=>{threadPage--;drawThreads();};
+  $('threadNext').onclick=()=>{threadPage++;drawThreads();};
+  async function loadThreads() {
+    threads=await api.rpc(owner()?'th6_monitor_inbox':'th6_sales_inbox');
+    if(!staff)return;
+    if(currentThread&&!threads.some(t=>t.id===currentThread)){
+      replyDrafts.delete(currentThread);$('inquiryDialog').close();notice('완료되거나 보관 기간이 지난 대화입니다.');
+    }
+    drawThreads();
+  }
+  $('chatClose').onclick=()=>$('inquiryDialog').close();
+  $('inquiryDialog').addEventListener('close',()=>{
+    if(currentThread)replyDrafts.set(currentThread,$('replyBody').value);
+    currentThread=null;$('adminChatLog').replaceChildren();$('chatError').textContent='';
+    const item=[...$('threadList').children].find(e=>e.dataset.threadId===threadOpener);
+    (item||$('chatRefresh')).focus();
+  });
   async function openThread(id) {
-    currentThread=id;$('adminChat').hidden=false;$('chatTitle').textContent=threads.find(t=>t.id===id)?.name||'고객 문의';
-    const selected=threads.find(t=>t.id===id);if(selected?.order)$('chatTitle').textContent+=' · 주문 '+orderNumber(selected.order);
-    $('chatPhone').textContent=selected?.phone||'';
-    await readAdminChat();
+    const selected=threads.find(t=>t.id===id);if(!selected)return;
+    if(currentThread&&currentThread!==id)replyDrafts.set(currentThread,$('replyBody').value);
+    currentThread=id;threadOpener=id;$('replyBody').value=replyDrafts.get(id)||'';replyAttempt=null;
+    $('chatTitle').textContent=selected.name+(selected.order?' · 주문 '+orderNumber(selected.order):' · 일반 이용문의');
+    $('chatPhone').textContent=(selected.phone?selected.phone+' · ':'')+(owner()?selected.staffName:staff.name)+' 담당'+(owner()?' · 읽기 전용':'');
+    $('chatError').textContent='';$('replyNotice').textContent='';$('adminChatLog').replaceChildren(text('p','대화를 불러오는 중입니다.'));
+    if(!$('inquiryDialog').open)$('inquiryDialog').showModal();
+    try{await readAdminChat(true);}catch(e){if(currentThread===id)$('chatError').textContent=e.message;}
   }
   $('chatRefresh').onclick = () => loadThreads().catch(e => notice(e.message));
-  async function readAdminChat() {
-    if(!currentThread)return;const id=currentThread;
+  async function readAdminChat(opening=false) {
+    if(!currentThread||!$('inquiryDialog').open)return;const id=currentThread;
     const data=owner()?await api.rpc('th6_monitor_read',{p_thread:id}):await api.api('/rest/v1/th6_messages?select=*&thread_id=eq.'+id+'&order=created_at.asc,id.asc');
-    if(currentThread!==id||!staff)return;
-    $('adminChatLog').replaceChildren();
-    for(const m of data) { const b=text('div',m.body,'chat-bubble '+m.sender);b.append(text('time',koreaTime(m.created_at)));$('adminChatLog').append(b); }
+    if(currentThread!==id||!staff||!$('inquiryDialog').open)return;
+    const log=$('adminChatLog'),atBottom=opening||log.scrollHeight-log.scrollTop-log.clientHeight<100,oldTop=log.scrollTop;
+    log.replaceChildren();
+    for(const m of data) {
+      const b=text('div','','chat-bubble '+m.sender);
+      b.append(text('strong',m.sender==='customer'?'고객':m.sender==='system'?'주문 안내':'담당 영업자','chat-sender'),text('p',m.body),text('time',koreaTime(m.created_at)));log.append(b);
+    }
+    if(!data.length)log.append(text('p','아직 메시지가 없습니다.'));
+    log.scrollTop=atBottom?log.scrollHeight:oldTop;
     if(!owner())await api.rpc('th6_admin_read',{p_thread:id});
+    if(currentThread!==id||!staff)return;
     const t=threads.find(t=>t.id===id);if(t)t.unread=0;
-    const item=[...$('threadList').children].find(e=>e.dataset.threadId===id);if(item?.querySelector('.badge'))item.querySelector('.badge').hidden=true;
+    drawThreads();
     const remaining=threads.filter(t=>t.unread).length;$('unreadCount').textContent=remaining||'';$('unreadCount').hidden=!remaining;
   }
   $('replyForm').onsubmit=async e=> {
-    e.preventDefault();if(!currentThread||!$('replyBody').value.trim())return;$('replySend').disabled=true;
-    try { const body=$('replyBody').value.trim();if(!replyAttempt||replyAttempt.body!==body||replyAttempt.thread!==currentThread)replyAttempt={id:crypto.randomUUID(),body,thread:currentThread};
-      await api.rpc('th6_admin_reply',{p_thread:replyAttempt.thread,p_body:body,p_message:replyAttempt.id});replyAttempt=null;$('replyBody').value='';await readAdminChat();
-    } catch(e) { notice(e.message); } finally { $('replySend').disabled=false; }
+    e.preventDefault();if(owner()||!currentThread||!$('replyBody').value.trim())return;
+    const id=currentThread,body=$('replyBody').value.trim();$('replySend').disabled=true;
+    try {
+      if(!replyAttempt||replyAttempt.body!==body||replyAttempt.thread!==id)replyAttempt={id:crypto.randomUUID(),body,thread:id};
+      await api.rpc('th6_admin_reply',{p_thread:replyAttempt.thread,p_body:body,p_message:replyAttempt.id});
+      replyDrafts.delete(id);replyAttempt=null;
+      if(currentThread===id){$('replyBody').value='';await readAdminChat();}
+      await loadThreads();
+    } catch(e) { if(currentThread===id)$('replyNotice').textContent=e.message;else notice(e.message); } finally { $('replySend').disabled=false; }
   };
   async function beep(kind='message'){await window.TH_SOUNDS.play(kind);}
   function showOrderWaitingCount(count) {

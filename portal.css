@@ -4,3 +4,14 @@
 
 #clientLoginDialog .portal-entry{margin:0;padding:12px!important;border:0;background:transparent}#memberInstall{margin:16px 0}#memberInstall button{margin-left:12px}.setting-card{padding:12px;border:1px solid #afa0aa;border-radius:10px;margin:10px 0}.setting-card .actions{margin-top:8px}
 #memberInstall [data-install-hint]{color:var(--th-muted,#65535f);line-height:1.6}
+
+.customer-inbox-dialog{width:min(900px,calc(100% - 24px));overflow:auto}.customer-inbox-dialog h2{font-size:21px}
+#customerOrderList.inquiry-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:none;overflow:visible;border:0;padding:0;margin:14px 0}
+#customerOrderList .inquiry-item{min-width:0;min-height:82px;display:grid;gap:4px;padding:10px 12px;margin:0;background:var(--th-surface-soft);color:var(--th-ink);border:1px solid var(--th-line);border-radius:10px;font-size:13px;font-weight:normal;line-height:1.4;text-align:left}
+#customerOrderList .inquiry-item.unread{border-left:4px solid #c83d43;padding-left:9px}
+#customerOrderList .inquiry-top{display:flex;align-items:center;gap:6px;min-width:0}#customerOrderList strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#customerOrderList time{font-size:12px;color:var(--th-muted);margin-left:auto;white-space:nowrap}
+#customerOrderList .inquiry-preview,#customerOrderList small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#customerOrderList small{font-size:12px;color:var(--th-muted)}#customerOrderList .chat-unread{margin:0;flex-shrink:0}
+.customer-inbox-footer{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}.customer-inbox-footer button{padding:8px 12px;font-size:13px}.customer-inbox-footer>div{display:flex;gap:8px}
+#chatDialog{overflow:auto;width:min(620px,calc(100% - 24px))}#chatDialog h2{font-size:19px}#chatDialog .chat-head{align-items:flex-start}#chatDialog .chat-log{height:clamp(160px,42dvh,400px)}#chatDialog .chat-bubble{font-size:14px}#chatDialog .chat-error:empty,#customerInboxError:empty{display:none}
+@media(max-width:600px){#customerOrderList.inquiry-grid{grid-template-columns:1fr}.customer-inbox-footer button{min-height:44px}}

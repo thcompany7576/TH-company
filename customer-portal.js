@@ -6,7 +6,7 @@
   let profile = null, partners = [], mode = null, settingsReady = false, thread = null, polling = false;
   let pendingMessage = null, orderAttempt = null, loadingSettings = null, unread = 0;
   const memoryKey = 'th6:threads';
-  let inbox = [], inboxLoading = null, inboxBaseline=false;
+  let inbox = [], inboxLoading = null, inboxBaseline=false, inboxPage=0; const chatDrafts=new Map();
   const orderNumber=t=>String(t.orderNumber||'확인 중');
   const statusLabels={pending:'영업자 확인 중',approved:'관제 배정 대기',assigned:'기사 배정 완료',completed:'완료',held:'보류'};
   const account=()=>profile?.contactId||'guest:'+sales;
@@ -52,13 +52,13 @@
     select.dispatchEvent(new Event('change',{bubbles:true}));
   }
   function showEntry() {
-    profile=null;partners=[];thread=null;inbox=[];inboxBaseline=false;
+    profile=null;partners=[];thread=null;inbox=[];inboxBaseline=false;chatDrafts.clear();$('chatBody').value='';
     for(const dialog of document.querySelectorAll('dialog[open]'))dialog.close();
     $('chatLog').replaceChildren();$('partnerList').replaceChildren();
     enter('guest').catch(e=>$('entryError').textContent=e.message);
   }
   async function enter(nextMode) {
-    await refreshSettings(); mode = nextMode;inbox=[];inboxBaseline=false;loginDialog.close();paymentChoices();
+    await refreshSettings(); mode = nextMode;inbox=[];inboxBaseline=false;chatDrafts.clear();$('chatBody').value='';loginDialog.close();paymentChoices();
     const agencyDoc=$('agencyFrame').contentDocument;if(agencyDoc?.getElementById('order'))paymentChoices(agencyDoc.getElementById('order'),agencyDoc);
     $('memberInstall').hidden=!profile;$('memberLoginOpen').hidden=Boolean(profile);
     window.TH_SOUNDS.init(profile?.contactId||'customer-device');
@@ -105,7 +105,7 @@
     if (!thread) return;
     const stamp = thread.id;
     const data = await api.rpc('th6_read_thread', { p_thread: thread.id, p_token: thread.token });
-    if (stamp !== thread?.id) return;
+    if (stamp !== thread?.id||!$('chatDialog').open) return;
     if (data.orderId) { thread.orderId = data.orderId;thread.orderNumber=data.orderNumber; rememberThread(); }
     const log = $('chatLog'), atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
     log.replaceChildren();
@@ -132,7 +132,9 @@
         const changed=data.filter(t=>{const old=inbox.find(r=>r.id===t.id);return old&&((Number(t.unread)>0&&t.updatedAt!==old.updatedAt)||t.status!==old.status||t.fare!==old.fare);});
         if(changed.length){const t=changed[0],old=inbox.find(r=>r.id===t.id);const kind=t.status!==old.status?({assigned:'assigned',completed:'completed',held:'held',approved:'approved',pending:'restored'}[t.status]||'reply'):t.fare!==old.fare?'fare':'reply';await window.TH_SOUNDS.play(kind);}
       }
-      inboxBaseline=true;inbox=data;renderThreadSelector();renderInbox();
+      inboxBaseline=true;inbox=data;
+      if($('chatDialog').open&&thread&&!inbox.some(t=>t.id===thread.id)){const removed=thread.id;$('chatDialog').close();chatDrafts.delete(removed);thread=null;$('chatLog').replaceChildren();$('customerInboxError').textContent='완료되거나 보관 기간이 지난 대화입니다.';}
+      renderThreadSelector();renderInbox();
       unread=inbox.reduce((sum,t)=>sum+Number(t.unread||0),0);$('chatUnread').textContent=unread;$('chatUnread').hidden=!unread;
     })();try{await inboxLoading;}finally{inboxLoading=null;}
   }
@@ -143,16 +145,35 @@
     $('chatIdentity').hidden=true;$('chatGuestName').value=thread.name||'';$('chatGuestPhone').value=thread.phone||'';
   }
   function renderInbox() {
-    let root=$('customerOrderList');if(!root){root=text('div','','customer-order-list');root.id='customerOrderList';$('chatThread').before(root);}
-    root.replaceChildren();root.append(text('h3','내 주문 · 문의'));
-    for(const t of inbox){const b=text('button','','customer-order-item secondary');b.type='button';b.setAttribute('aria-current',String(thread?.id===t.id));
-      b.append(text('strong',t.orderId?'주문 '+orderNumber(t)+' · '+(statusLabels[t.status]||'접수'):'일반 이용문의'));
-      if(t.orderId){b.append(text('small',(t.locations||[]).map(p=>p.address).join(' → ')));if(Number.isFinite(t.fare))b.append(text('small',t.fare.toLocaleString('ko-KR')+'원'));}
-      b.append(text('small',new Date(t.time).toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit'})));
-      if(t.unread)b.append(text('span','새 알림 '+t.unread,'chat-unread'));
-      b.onclick=async()=>{try{chooseThread(t);await readChat();await refreshInbox();}catch(e){$('chatError').textContent=e.message;}};root.append(b);
+    const root=$('customerOrderList');root.replaceChildren();
+    inboxPage=Math.min(inboxPage,Math.max(0,Math.ceil(inbox.length/14)-1));const start=inboxPage*14;
+    for(const t of inbox.slice(start,start+14)){
+      const b=text('button','','customer-order-item inquiry-item'+(t.unread?' unread':''));b.type='button';b.setAttribute('aria-haspopup','dialog');b.dataset.threadId=t.id;
+      const top=text('span','','inquiry-top');top.append(text('strong',t.orderId?'주문 '+orderNumber(t):'일반 이용문의'));
+      if(t.unread)top.append(text('span',String(t.unread),'chat-unread'));
+      top.append(text('time',new Date(t.updatedAt||t.time).toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false})));
+      b.append(top,text('span',t.lastBody||'대화를 열어 내용을 확인하세요.','inquiry-preview'));
+      b.append(text('small',t.orderId?(statusLabels[t.status]||'접수')+(Number.isFinite(t.fare)?' · '+t.fare.toLocaleString('ko-KR')+'원':''):'담당 영업자와 이용문의'));
+      b.onclick=()=>openConversation(t).catch(e=>$('customerInboxError').textContent=e.message);root.append(b);
     }
     if(!inbox.length)root.append(text('p','접수한 주문이나 문의가 없습니다.'));
+    $('customerThreadCount').textContent=inbox.length?(start+1)+'–'+Math.min(start+14,inbox.length)+' / '+inbox.length+'건':'';
+    $('customerThreadPrev').disabled=inboxPage===0;$('customerThreadNext').disabled=start+14>=inbox.length;
+  }
+  $('customerThreadPrev').onclick=()=>{inboxPage--;renderInbox();};
+  $('customerThreadNext').onclick=()=>{inboxPage++;renderInbox();};
+  $('customerInboxClose').onclick=()=>$('customerInboxDialog').close();
+  $('chatDialog').addEventListener('close',()=>{chatDrafts.set(thread?.id||'new',$('chatBody').value);});
+  async function openConversation(t) {
+    if(t)chooseThread(t);else thread=null;
+    $('chatError').textContent='';$('chatBody').value=chatDrafts.get(thread?.id||'new')||'';pendingMessage=null;
+    $('customerChatTitle').textContent=t?.orderId?'주문 '+orderNumber(t)+' · 대화':'이용 문의사항';
+    $('chatForm').hidden=Boolean(t?.closed);$('chatIdentity').hidden=Boolean(profile)||Boolean(thread);
+    if(!profile){const who=person(true);$('chatGuestName').value=thread?.name||who.name;$('chatGuestPhone').value=thread?.phone||who.phone;}
+    $('chatLog').replaceChildren();$('chatStatus').textContent=t?.orderId?(statusLabels[t.status]||'주문 문의'):'새 이용문의';
+    if(!$('chatDialog').open)$('chatDialog').showModal();
+    if(thread){try{await readChat();await refreshInbox();$('chatLog').scrollTop=$('chatLog').scrollHeight;}catch(e){$('chatError').textContent=e.message;}}
+    if(!$('chatForm').hidden)$('chatBody').focus();
   }
   function renderThreadSelector() {
     const select = $('chatThread'); select.replaceChildren();
@@ -161,22 +182,15 @@
     select.hidden = true; if (thread) select.value = thread.id;
   }
   async function openChat() {
-    $('chatError').textContent = ''; $('chatIdentity').hidden = Boolean(profile) || Boolean(thread);
-    if (!profile) { const who = person(true); $('chatGuestName').value = thread?.name || who.name; $('chatGuestPhone').value = thread?.phone || who.phone; }
-    if (!$('chatDialog').open) $('chatDialog').showModal();
-    try {
-      await refreshInbox();
-      if(thread&&!inbox.some(t=>t.id===thread.id)){thread=null;$('chatLog').replaceChildren();$('chatStatus').textContent='일반 이용문의';$('chatIdentity').hidden=Boolean(profile);}
-      if(thread)await readChat();await refreshInbox();
-    } catch (e) { $('chatError').textContent = e.message; }
-    $('chatBody').focus();
+    $('customerInboxError').textContent='';
+    if(!$('customerInboxDialog').open)$('customerInboxDialog').showModal();
+    try{await refreshInbox();}catch(e){$('customerInboxError').textContent=e.message;}
   }
-  $('chatClose').onclick = () => $('chatDialog').close();
-  $('chatOpen').onclick = openChat;
-  document.querySelectorAll('[data-open-chat]').forEach(b => b.onclick = openChat);
-  $('chatThread').onchange = async () => { try { const t=inbox.find(t=>t.id===$('chatThread').value);if(t)chooseThread(t);await readChat();await refreshInbox(); } catch (e) { $('chatError').textContent = e.message; } };
-  $('chatNew').textContent='일반 이용문의';
-  $('chatNew').onclick = () => { thread = null;$('chatForm').hidden=false;renderInbox(); $('chatLog').replaceChildren(); $('chatStatus').textContent = '새 문의'; $('chatIdentity').hidden = Boolean(profile); $('chatBody').focus(); };
+  $('chatClose').onclick=()=>$('chatDialog').close();
+  $('chatOpen').onclick=openChat;
+  document.querySelectorAll('[data-open-chat]').forEach(b=>b.onclick=openChat);
+  $('chatThread').onchange=()=>{};
+  $('chatNew').onclick=()=>openConversation(null);
   $('chatForm').onsubmit = async e => {
     e.preventDefault(); if (!$('chatBody').value.trim()) return;
     $('chatSend').disabled = true; $('chatError').textContent = '';
@@ -185,7 +199,7 @@
       const body = $('chatBody').value.trim();
       if (!pendingMessage || pendingMessage.body !== body || pendingMessage.thread !== t.id) pendingMessage = { id: crypto.randomUUID(), body, thread: t.id };
       await api.rpc('th6_send_message', { p_thread: t.id, p_token: t.token, p_body: body, p_message: pendingMessage.id });
-      pendingMessage = null; $('chatBody').value = ''; $('chatIdentity').hidden = true; await readChat();await refreshInbox();
+      pendingMessage = null;chatDrafts.delete(t.id);chatDrafts.delete('new');if(thread?.id===t.id){$('chatBody').value='';$('chatIdentity').hidden=true;await readChat();}await refreshInbox();
     } catch (e) { $('chatError').textContent = e.message; }
     finally { $('chatSend').disabled = false; }
   };
