@@ -1,10 +1,10 @@
 {
   "id": "./order.html",
-  "name": "TH company 퀵서비스 주문",
+  "name": "TH company 주문앱",
   "short_name": "TH 주문",
   "lang": "ko",
   "start_url": "./order.html?installed=1",
-  "scope": "./",
+  "scope": "./order.html",
   "display": "standalone",
   "background_color": "#75656d",
   "theme_color": "#75656d",

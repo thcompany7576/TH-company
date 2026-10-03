@@ -4,7 +4,7 @@
   "short_name": "TH 관리",
   "lang": "ko",
   "start_url": "./admin.html",
-  "scope": "./",
+  "scope": "./admin.html",
   "display": "standalone",
   "background_color": "#75656d",
   "theme_color": "#75656d",
