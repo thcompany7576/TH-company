@@ -20,7 +20,7 @@
   const settings = {
     size: { '소': 0, '중': 1000, '대': 3000 },
     weight: { '5kg 미만': 0, '5kg~15kg': 1000, '15kg 초과': 2000 },
-    urgent: 0.3
+    urgent: 0.3, extraLocation: 7000
   };
   const money = amount => amount.toLocaleString('ko-KR') + '원';
   function isLocal(first, second) {
@@ -53,6 +53,8 @@
     if(distance?.roundTrip)rows.push({name:'왕복 배송 추가요금',amount:fare.roundExtra??null});
     rows.push({ name: '물품 크기 (' + $('itemSize').value + ')', amount: settings.size[$('itemSize').value] ?? null });
     rows.push({ name: '물품 무게 (' + $('itemWeight').value + ')', amount: settings.weight[$('itemWeight').value] ?? null });
+    const stops = window.TH_ORDER.routeLocations().filter(p => !['from', 'to'].includes(p.address.name));
+    if (stops.length) rows.push({ name: '경유지 추가요금 (' + stops.length + '곳)', amount: stops.length * settings.extraLocation });
     const now = new Date();
     const reserved = $('fromScheduled').checked;
     const target = reserved ? new Date($('fromDate').value + 'T' + $('fromTime').value + ':00+09:00') : now;
