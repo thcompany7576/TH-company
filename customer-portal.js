@@ -64,6 +64,7 @@
   }
   function person(forOrder = false) {
     if (profile) return { name: profile.name, phone: profile.phone };
+    if(!forOrder&&thread?.orderId)return {name:thread.name,phone:thread.phone};
     const sender = { name: form.elements.sender.value.trim(), phone: form.elements.senderPhone.value.trim() };
     return forOrder ? sender : {
       name: $('chatGuestName').value.trim() || thread?.name || sender.name,
@@ -110,7 +111,7 @@
     inboxLoading=(async()=>{
       const known=savedThreads().filter(t=>t.account===who);
       const data=await api.rpc('th6_customer_threads',{p_threads:known.map(t=>({id:t.id,token:t.token}))});
-      if(account()!==who||!mode)return;
+      if(account()!==who)return;
       inbox=data;renderThreadSelector();renderInbox();
       unread=inbox.reduce((sum,t)=>sum+Number(t.unread||0),0);$('chatUnread').textContent=unread;$('chatUnread').hidden=!unread;
     })();try{await inboxLoading;}finally{inboxLoading=null;}
@@ -118,7 +119,8 @@
   function chooseThread(t) {
     const saved=savedThreads().find(r=>r.id===t.id&&r.account===account());
     if(!saved&&!profile)throw Error('이 기기의 문의 확인정보가 없습니다.');
-    thread={...t,...saved,id:t.id,orderId:t.orderId,account:account(),token:saved?.token||randomToken(),time:saved?.time||new Date(t.time).getTime()};rememberThread();
+    thread={...t,...saved,id:t.id,orderId:t.orderId,name:t.name,phone:t.phone,account:account(),token:saved?.token||randomToken(),time:saved?.time||new Date(t.time).getTime()};rememberThread();
+    $('chatIdentity').hidden=true;$('chatGuestName').value=thread.name||'';$('chatGuestPhone').value=thread.phone||'';
   }
   function renderInbox() {
     let root=$('customerOrderList');if(!root){root=text('div','','customer-order-list');root.id='customerOrderList';$('chatThread').before(root);}
@@ -142,7 +144,11 @@
     $('chatError').textContent = ''; $('chatIdentity').hidden = Boolean(profile) || Boolean(thread);
     if (!profile) { const who = person(true); $('chatGuestName').value = thread?.name || who.name; $('chatGuestPhone').value = thread?.phone || who.phone; }
     if (!$('chatDialog').open) $('chatDialog').showModal();
-    try { await refreshInbox();if(thread)await readChat();await refreshInbox(); } catch (e) { $('chatError').textContent = e.message; }
+    try {
+      await refreshInbox();
+      if(thread&&!inbox.some(t=>t.id===thread.id)){thread=null;$('chatLog').replaceChildren();$('chatStatus').textContent='일반 이용문의';$('chatIdentity').hidden=Boolean(profile);}
+      if(thread)await readChat();await refreshInbox();
+    } catch (e) { $('chatError').textContent = e.message; }
     $('chatBody').focus();
   }
   $('chatClose').onclick = () => $('chatDialog').close();
