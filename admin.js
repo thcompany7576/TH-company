@@ -43,6 +43,8 @@
     document.querySelectorAll('[data-owner-only]').forEach(e => e.hidden = !owner());
     document.querySelectorAll('[data-representative-only]').forEach(e => e.hidden = !representative());
     document.querySelector('[data-page=clients]').hidden = !clientManager();
+    document.querySelector('[data-page=fares]').hidden = staff.role !== 'sales';
+    if(staff.role!=='sales'&&page==='fares')await selectPage('orders');
     document.querySelectorAll('[data-client-manager-only]').forEach(e => e.hidden = !clientManager());
     await window.TH_DISPATCH.init(staff,async()=>{notice('새 영업자·관제 메시지가 도착했습니다.');await beep();});
     await loadStaff(); await loadOrders(true); await loadThreads(); baseline = false; pollCursor = null; seenOrders.clear(); seenThreads.clear(); await poll();
@@ -78,10 +80,11 @@
     }
   });
   async function selectPage(value) {
+    if(value==='fares'&&staff?.role!=='sales')return;
     if(value!==page&&$('inquiryDialog').open)$('inquiryDialog').close();
     page = value;
     for (const b of document.querySelectorAll('[data-page]')) { const selected = b.dataset.page === page; if (selected) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
-    for (const value of ['orders', 'clients', 'chat', 'dispatch', 'settings', 'staff']) $('page-' + value).hidden = value !== page;
+    for (const value of ['orders', 'clients', 'chat', 'dispatch', 'settings', 'staff', 'fares']) $('page-' + value).hidden = value !== page;
     try {
       await window.TH_DISPATCH.show(page === 'dispatch');
       if (page === 'orders') await loadOrders(true);
