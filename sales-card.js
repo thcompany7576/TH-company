@@ -19,7 +19,7 @@
   const target=new URL('order.html',location.href);if(r.slug)target.searchParams.set('sales',r.slug);order.href=target.href;order.hidden=false;
   const canonical=new URL('index.html',location.href);if(r.slug)canonical.searchParams.set('sales',r.slug);canonical.searchParams.set('v','brand2');CARD_URL=canonical.href;
   document.getElementById('shareCardButton').hidden=false;
-  if(r.phone&&/^[0-9-]{9,14}$/.test(r.phone)){phone.textContent=r.phone;call.href='tel:'+r.phone.replace(/-/g,'');call.hidden=false;}else phone.textContent='전화번호 등록 준비 중';
+  if(r.phone&&/^[0-9-]{9,14}$/.test(r.phone)){phone.textContent=r.phone.replace(/-/g,'').replace(/^(01\d)(\d{3,4})(\d{4})$/,'$1-$2-$3');call.href='tel:'+r.phone.replace(/-/g,'');call.hidden=false;}else phone.textContent='전화번호 등록 준비 중';
   if(/^https:\/\/open\.kakao\.com\/(o|me)\/[A-Za-z0-9_-]+$/.test(r.kakaoUrl||'')){kakao.href=r.kakaoUrl;kakao.hidden=false;}
   hint.textContent=r.name+' 영업자에게 전화 또는 카카오톡으로 문의해 주세요.';
  }).catch(e=>{phone.textContent='담당 영업자 확인 필요';hint.textContent=e.message;});
