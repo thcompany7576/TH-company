@@ -167,12 +167,14 @@
         const priceLabel=text('label','고객과 확인한 총 운행요금 (원 · 보증금 제외)');priceLabel.append(price);
         const reason=document.createElement('textarea');reason.maxLength=2000;reason.placeholder='고객 합의';const reasonLabel=text('label','요금 조정 사유 (선택)');reasonLabel.append(reason);
         const consent=document.createElement('input');consent.type='checkbox';consent.required=true;const consentLabel=text('label','');consentLabel.className='inline';consentLabel.append(consent,text('span','고객과 조정 운행요금을 확인했습니다.'));
-        fields.append(priceLabel,reasonLabel,consentLabel);adjustment.append(fields);card.append(adjustment);
+        const reasonDetails=document.createElement('details');reasonDetails.append(text('summary','조정 사유 (선택)'),reasonLabel);fields.append(priceLabel,consentLabel,reasonDetails);adjustment.append(fields);card.append(adjustment);
         enabled.onchange=()=>{fields.hidden=fields.disabled=!enabled.checked;};
+        const contractUI=window.TH_CONTRACT.decorate(r,{card,extra,adjustment,enabled,fields,price,reason,consent});
         const approve=button('주문 승인 · 관제로 전달',async()=>{
+          let contractArgs;try{contractArgs=contractUI.args();}catch(e){notice(e.message);return;}
           if(enabled.checked&&(!price.reportValidity()||!consent.checked)){notice('조정 요금을 입력하고 고객 확인에 체크해 주세요.');return;}
           if(!confirm('주문 내용과 요청 방식을 확인했나요? 승인하면 관제에 전달됩니다.'))return;
-          approve.disabled=true;try{await api.rpc('th6_approve_with_fare',{p_id:r.id,p_notes:notes.value,p_fare:enabled.checked?Number(price.value):null,p_reason:enabled.checked?reason.value:'',p_customer_confirmed:enabled.checked&&consent.checked});await loadOrders(true);notice('승인한 주문을 관제로 전달했습니다.');}catch(e){notice(e.message);approve.disabled=false;}
+          approve.disabled=true;try{await api.rpc('th6_approve_contract',{...contractArgs,p_id:r.id,p_notes:notes.value,p_fare:enabled.checked?Number(price.value):null,p_reason:enabled.checked?reason.value:'',p_customer_confirmed:enabled.checked&&consent.checked});await loadOrders(true);notice('승인한 주문을 관제로 전달했습니다.');}catch(e){notice(e.message);approve.disabled=false;}
         },'');actions.prepend(approve);
       }
       extra.append(secondaryActions);card.append(actions,extra); root.append(card);
@@ -230,6 +232,7 @@
     for (const input of $('clientForm').querySelectorAll('input,select')) input.disabled = !clientManager();
     $('clientStaff').disabled = !representative();
     if (!$('clientDialog').open) $('clientDialog').showModal();
+    if(c&&staff.role==='sales')try{await window.TH_CONTRACT.clientRules(c.id,$('contractClientRules'));}catch(e){$('contractClientRules').textContent=e.message;}$('contractClientPanel').hidden=!c||staff.role!=='sales';
     if (c) try { await loadClientAccounts(); } catch (e) { $('clientNotice').textContent = e.message; }
   }
   $('newClient').onclick = () => editClient(null); $('clientClose').onclick = () => $('clientDialog').close();

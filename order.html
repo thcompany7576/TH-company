@@ -10,7 +10,7 @@
 <p id="extraRule" class="muted">추가 픽업지와 추가 도착지는 한쪽만 선택할 수 있습니다.</p><section aria-labelledby="mapHeading"><h2 id="mapHeading">출발지·도착지 지도</h2><p id="distanceStatus" class="muted" role="status">출발지와 도착지를 선택해 주세요.</p><p id="mapStatus" class="muted map-status" role="status">지도를 불러오고 있어요…</p><div id="orderMap" aria-label="출발지와 도착지 위치 지도"></div><p id="distanceFare" class="fare-base" role="status">거리 기준 요금: 주소 확인 후 표시</p></section>
 <section><h2>물품</h2><label>물품 종류·수량<input name="item" required placeholder="휴대폰 / 서류 / 박스 / 수량 함께 기재"></label><div class="grid"><label>크기<select name="itemSize" id="itemSize" required><option value="" disabled selected>크기를 선택해 주세요</option><option value="소">소</option><option value="중">중</option><option value="대">대</option></select></label><label>무게<select name="itemWeight" id="itemWeight" required><option value="" disabled selected>무게를 선택해 주세요</option><option value="5kg 미만">5kg 미만</option><option value="5kg~15kg">5kg~15kg</option><option value="15kg 초과">15kg 초과</option></select></label></div><p class="muted">물품 종류와 수량을 함께 적고, 크기와 무게를 선택해 주세요.</p></section>
 
-<section><h2>결제·특이사항</h2><label>결제 방법<select name="paymentMethod" id="paymentMethod" required><option value="" disabled selected>결제 방법을 선택해 주세요</option><option value="카드">카드</option><option value="현금">현금</option></select></label><fieldset id="cashFields" hidden><legend>현금 결제</legend><label>결제 시점<select name="cashTiming" id="cashTiming"><option value="" disabled selected>선불 또는 착불을 선택해 주세요</option><option value="선불">선불</option><option value="착불">착불</option></select></label></fieldset><label class="schedule-toggle"><input type="checkbox" id="splitPayment" name="splitPayment" role="switch" aria-controls="splitFields"> 요금 나눠 내기</label><fieldset id="splitFields" hidden><legend>요금 부담 비율</legend><label>출발지·도착지 비율<select id="splitRatio" name="splitRatio"><option value="10" >출발지 10% / 도착지 90%</option><option value="20" >출발지 20% / 도착지 80%</option><option value="30" >출발지 30% / 도착지 70%</option><option value="40" >출발지 40% / 도착지 60%</option><option value="50" selected>출발지 50% / 도착지 50%</option><option value="60" >출발지 60% / 도착지 40%</option><option value="70" >출발지 70% / 도착지 30%</option><option value="80" >출발지 80% / 도착지 20%</option><option value="90" >출발지 90% / 도착지 10%</option></select></label><p id="splitHint" class="muted" aria-live="polite">출발지 50% / 도착지 50%</p></fieldset><label>특이사항<textarea name="notes" id="notes" rows="3" placeholder="예: 기사분 신분증 지참, 전화 불가 / 문자로 연락, 공동현관 출입 가능 여부"></textarea></label></section>
+<section><h2>결제·특이사항</h2><p id="contractNote" class="contract-note" hidden></p><label>결제 방법<select name="paymentMethod" id="paymentMethod" required><option value="" disabled selected>결제 방법을 선택해 주세요</option><option value="카드">카드</option><option value="현금">현금</option></select></label><fieldset id="cashFields" hidden><legend>현금 결제</legend><label>결제 시점<select name="cashTiming" id="cashTiming"><option value="" disabled selected>선불 또는 착불을 선택해 주세요</option><option value="선불">선불</option><option value="착불">착불</option></select></label></fieldset><label class="schedule-toggle"><input type="checkbox" id="splitPayment" name="splitPayment" role="switch" aria-controls="splitFields"> 요금 나눠 내기</label><fieldset id="splitFields" hidden><legend>요금 부담 비율</legend><label>분담 방식<select id="splitPair" name="splitPair"><option value="from-to">출발지 ↔ 도착지</option><option value="client-from">의뢰자 ↔ 출발지</option><option value="client-to">의뢰자 ↔ 도착지</option></select></label><label>출발지·도착지 비율<select id="splitRatio" name="splitRatio"><option value="10" >출발지 10% / 도착지 90%</option><option value="20" >출발지 20% / 도착지 80%</option><option value="30" >출발지 30% / 도착지 70%</option><option value="40" >출발지 40% / 도착지 60%</option><option value="50" selected>출발지 50% / 도착지 50%</option><option value="60" >출발지 60% / 도착지 40%</option><option value="70" >출발지 70% / 도착지 30%</option><option value="80" >출발지 80% / 도착지 20%</option><option value="90" >출발지 90% / 도착지 10%</option></select></label><p id="splitHint" class="muted" aria-live="polite">출발지 50% / 도착지 50%</p></fieldset><label>특이사항<textarea name="notes" id="notes" rows="3" placeholder="예: 기사분 신분증 지참, 전화 불가 / 문자로 연락, 공동현관 출입 가능 여부"></textarea></label></section>
 <section><h2>요금 안내</h2><p><strong>예상 요금: 주소·도로 거리 확인 후 안내</strong></p><p class="muted">도로 거리는 지도에서 위치 확인 후 표시됩니다. 과적·급송·대기 등 운송 조건에 따라 요금이 달라질 수 있습니다.</p><p id="chargeInfo" aria-live="polite"></p></section>
 <p id="formError" role="alert" class="muted"></p><button type="submit" style="width:100%">주문 내용 확인하기</button><p class="muted">확인 버튼만으로 주문은 접수되지 않습니다. 다음 화면에서 주문 접수하기를 눌러 주세요.</p></form>
 <section id="review" hidden aria-live="polite"><h2>주문 내용 확인</h2><pre id="summary"></pre><div id="fareReview" aria-live="polite"><h3>추가요금 안내</h3><ul id="fareBreakdown"></ul><p id="finalFare" class="fare-total"></p><p id="depositFare" class="muted"></p><p id="splitFare" class="muted"></p></div><p>내용을 확인하고 <strong>주문 접수하기</strong>를 눌러 주세요.</p><div class="actions"><button id="sms" type="button">주문 접수하기</button><button id="copy" class="secondary" type="button">주문 내용 복사</button><button class="secondary" type="button" data-open-chat>💬 이용 문의사항 💬</button><button id="edit" class="secondary" type="button">내용 수정</button></div><p id="message" role="status"></p><a href="order.html" id="newOrder" hidden>새 주문 작성</a></section></div></main><dialog id="addressDialog" aria-labelledby="addressDialogTitle"><div class="address-dialog-head"><strong id="addressDialogTitle">주소 검색</strong><button type="button" class="secondary" id="closeAddressDialog">닫기</button></div><div id="addressSearchFrame"></div></dialog><script src="config.js"></script><script>
@@ -38,6 +38,7 @@
     return results.length && results.every(p => p === true) ? true : null;
   }
   function base(distance) {
+    const saved=window.TH_CONTRACT?.match();if(saved){const oneWay=saved.fare,roundExtra=distance?.roundTrip?Math.max(10000,oneWay*(oneWay<=10000?1:0.7)):0;return {amount:oneWay+roundExtra,oneWay,roundExtra};}
     if (!distance || !Number.isFinite(distance.baseMeters ?? distance.outboundMeters)) return { amount: null };
     const local = distance.localRoute !== undefined ? distance.localRoute : isLocal(document.querySelector('[name="from"]'), document.querySelector('[name="to"]'));
     if (local === null) return { amount: null };
@@ -49,7 +50,9 @@
   }
   function quote(distance) {
     const fare = base(distance);
-    const rows = [{ name: '편도 거리 기준 요금', amount: fare.oneWay ?? null }];
+    const contract=window.TH_CONTRACT?.match();
+    if(contract){fare.oneWay=contract.fare;fare.roundExtra=distance?.roundTrip?Math.max(10000,contract.fare*(contract.fare<=10000?1:0.7)):0;fare.amount=fare.oneWay+fare.roundExtra;}
+    const rows = [{ name: contract?'약정 편도요금':'편도 거리 기준 요금', amount: fare.oneWay ?? null }];
     if(distance?.roundTrip)rows.push({name:'왕복 배송 추가요금',amount:fare.roundExtra??null});
     rows.push({ name: '물품 크기 (' + $('itemSize').value + ')', amount: settings.size[$('itemSize').value] ?? null });
     rows.push({ name: '물품 무게 (' + $('itemWeight').value + ')', amount: settings.weight[$('itemWeight').value] ?? null });
@@ -73,7 +76,7 @@
       if (subtotal !== null) subtotal += urgentAmount;
     }
     const total = subtotal === null ? null : rows.reduce((sum, row) => sum +
-      (row.name === '편도 거리 기준 요금' ? Math.ceil(row.amount / 1000) : Math.round(row.amount / 1000)) * 1000, 0);
+      (['편도 거리 기준 요금','약정 편도요금'].includes(row.name) ? Math.ceil(row.amount / 1000) : Math.round(row.amount / 1000)) * 1000, 0);
     const percent = $('splitPayment').checked ? Number($('splitRatio').value) : null;
     const fromAmount = total !== null && percent !== null ? Math.round(total * percent / 100) : null;
     return { rows, total, deposit: reserved && hours >= 3 ? 10000 : 0,
@@ -83,7 +86,7 @@
     const rows = result.rows.filter(r => r.name !== '요금 단위 조정').map(r => ({ ...r }));
     if (result.total === null) return rows;
     for (const row of rows) {
-      row.amount = (row.name === '편도 거리 기준 요금' ? Math.ceil(row.amount / 1000) : Math.round(row.amount / 1000)) * 1000;
+      row.amount = (['편도 거리 기준 요금','약정 편도요금'].includes(row.name) ? Math.ceil(row.amount / 1000) : Math.round(row.amount / 1000)) * 1000;
     }
     return rows;
   }
@@ -98,8 +101,9 @@
     }
     $('finalFare').textContent = '최종 요금: ' + (result.total === null ? '담당자 확인 후 안내' : money(result.total));
     $('depositFare').textContent = result.deposit ? '별도 보증금: ' + money(result.deposit) + ' (운행요금과 별도)' : '';
-    $('splitFare').textContent = result.percent === null ? '' : '출발지 ' + result.percent + '%: ' +
-      (result.fromAmount === null ? '요금 확인 후 안내' : money(result.fromAmount)) + ' / 도착지 ' + (100 - result.percent) + '%: ' +
+    const shareLabels=window.TH_CONTRACT?.splitLabels()||['출발지','도착지'];
+    $('splitFare').textContent = result.percent === null ? '' : shareLabels[0]+' ' + result.percent + '%: ' +
+      (result.fromAmount === null ? '요금 확인 후 안내' : money(result.fromAmount)) + ' / '+shareLabels[1]+' ' + (100 - result.percent) + '%: ' +
       (result.toAmount === null ? '요금 확인 후 안내' : money(result.toAmount));
     $('summary').dataset.fareText = '\n\n[추가요금 안내]\n' + lines.join('\n') + '\n' + $('finalFare').textContent +
       ($('depositFare').textContent ? '\n' + $('depositFare').textContent : '') +
@@ -175,8 +179,9 @@
     $('splitFields').hidden = !split;
     $('splitRatio').disabled = !split;
     $('splitRatio').required = split;
+    $('splitPair').disabled=!split;
     const share = Number($('splitRatio').value);
-    $('splitHint').textContent = '출발지 ' + share + '% / 도착지 ' + (100 - share) + '%';
+    const labels=window.TH_CONTRACT?.splitLabels()||['출발지','도착지'];$('splitHint').textContent=labels[0]+' '+share+'% / '+labels[1]+' '+(100-share)+'%';for(const opt of $('splitRatio').options){const n=Number(opt.value);opt.textContent=labels[0]+' '+n+'% / '+labels[1]+' '+(100-n)+'%';}
     updateExtras();
     $('serviceHint').textContent = hints[$('serviceType').value];
     $('notes').placeholder = '예: 기사분 신분증 지참, 전화 불가 / 문자로 연락, 공동현관 출입 가능 여부';
@@ -383,7 +388,7 @@
       if (!Number.isInteger(ratio) || ratio < 10 || ratio > 90 || ratio % 10 !== 0) {
         $('formError').textContent = '요금 부담 비율을 선택해 주세요.'; return;
       }
-      lines.push('요금 나눠 내기: 출발지 ' + ratio + '% / 도착지 ' + (100 - ratio) + '%');
+      const names=window.TH_CONTRACT?.splitLabels()||['출발지','도착지'];lines.push('요금 나눠 내기: '+names[0]+' ' + ratio + '% / '+names[1]+' ' + (100 - ratio) + '%');
     }
     if ($('copyFallback')) $('copyFallback').remove();
     $('summary').dataset.fareText = '';
@@ -670,4 +675,4 @@
 </script>
 <dialog id="customerInboxDialog" class="chat-dialog customer-inbox-dialog" aria-labelledby="customerInboxTitle"><div class="chat-head"><h2 id="customerInboxTitle">내 주문 · 문의</h2><button id="customerInboxClose" type="button" class="secondary">닫기</button></div><p class="portal-note">주문이나 문의를 선택하면 해당 대화창이 열립니다.</p><div id="customerOrderList" class="customer-order-list inquiry-grid"></div><div class="customer-inbox-footer"><button id="chatNew" type="button">새 이용문의</button><span id="customerThreadCount" class="portal-note"></span><div><button id="customerThreadPrev" type="button" class="secondary">이전</button><button id="customerThreadNext" type="button" class="secondary">다음</button></div></div><p id="customerInboxError" class="chat-error" role="status"></p></dialog><dialog id="chatDialog" class="chat-dialog" aria-labelledby="customerChatTitle"><div class="chat-head"><h2 id="customerChatTitle">이용 문의사항</h2><button id="chatClose" type="button" class="secondary">닫기</button></div><p id="chatStatus" class="portal-note">사무실 문의</p><select id="chatThread" aria-label="최근 문의 선택" hidden></select><p class="portal-note">답변과 배정 알림은 이 화면에서 확인하세요. 비로그인 문의는 같은 기기·브라우저에서 48시간 동안 확인할 수 있습니다.</p><div id="chatLog" class="chat-log" role="log" aria-live="polite"></div><form id="chatForm"><div id="chatIdentity"><label>성명<input id="chatGuestName" maxlength="60" autocomplete="name"></label><label>연락처<input id="chatGuestPhone" type="tel" inputmode="numeric" maxlength="14" placeholder="010-0000-0000"></label></div><label for="chatBody">문의 내용</label><textarea id="chatBody" rows="3" maxlength="2000" required></textarea><button id="chatSend">메시지 보내기</button><p id="chatError" class="chat-error" role="status"></p></form></dialog>
 <dialog id="partnerDialog" class="chat-dialog"><div class="chat-head"><h2>내 거래처 관리</h2><button id="partnerClose" type="button" class="secondary">닫기</button></div><p class="portal-note">같은 의뢰자의 등록 계정들이 함께 사용하는 거래처입니다.</p><div id="partnerList" class="partner-list"></div><button id="partnerAdd" type="button">+ 거래처 등록</button><form id="partnerEditor" class="partner-editor" hidden><label>거래처 이름<input id="partner_title" required maxlength="100"></label><label>주소<input id="partner_address" readonly required placeholder="눌러서 주소 검색"></label><label>상세주소<input id="partner_detail" maxlength="300"></label><label>성명<input id="partner_person" maxlength="60"></label><label>연락처<input id="partner_phone" type="tel" maxlength="14"></label><div class="actions"><button id="partnerSave">저장</button><button id="partnerEditorCancel" type="button" class="secondary">취소</button></div></form><p id="partnerError" role="status"></p></dialog>
-<dialog id="soundDialog" class="chat-dialog"><div class="chat-head"><h2>음성 알림 선택</h2><button id="soundClose" type="button" class="secondary">닫기</button></div><p>세 가지 말투 중 편한 안내를 선택해 주세요.</p><div id="soundOptions"></div><p id="soundNote" class="portal-note" role="status"></p></dialog><script src="portal-api.js"></script><script src="address-picker.js"></script><script src="voice-notifications.js?v=20261003-shortnumber1"></script><script src="customer-portal.js?v=20261004-member-sales"></script><script src="pwa.js?v=20261003-appsplit1"></script></body></html>
+<dialog id="soundDialog" class="chat-dialog"><div class="chat-head"><h2>음성 알림 선택</h2><button id="soundClose" type="button" class="secondary">닫기</button></div><p>세 가지 말투 중 편한 안내를 선택해 주세요.</p><div id="soundOptions"></div><p id="soundNote" class="portal-note" role="status"></p></dialog><script src="portal-api.js"></script><script src="address-picker.js"></script><script src="voice-notifications.js?v=20261003-shortnumber1"></script><script src="contract-routes.js?v=20261005-contract"></script><script src="customer-portal.js?v=20261005-contract"></script><script src="pwa.js?v=20261003-appsplit1"></script></body></html>

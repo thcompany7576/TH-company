@@ -73,11 +73,12 @@
     const select=targetForm.elements.paymentMethod;if(!select)return;select.replaceChildren();
     const blank=text('option','결제 방법을 선택해 주세요');blank.value='';blank.disabled=blank.selected=true;select.append(blank);
     for(const [value,label] of profile?[['신용','신용 · 의뢰자 결제'],['선불','선불 · 출발지 결제'],['착불','착불 · 도착지 결제']]:[['카드','카드'],['현금','현금']]){const option=text('option',label);option.value=value;select.append(option);}
-    const split=doc.getElementById('splitPayment');if(split){split.checked=false;split.disabled=Boolean(profile);split.closest('label').hidden=Boolean(profile);}
+    const split=doc.getElementById('splitPayment');if(split){split.checked=false;split.disabled=false;split.closest('label').hidden=false;}
+    const pair=doc.getElementById('splitPair');if(pair){for(const option of pair.options){option.hidden=option.disabled=!profile&&option.value!=='from-to';}pair.value='from-to';}
     select.dispatchEvent(new Event('change',{bubbles:true}));
   }
   function showEntry() {
-    profile=null;partners=[];thread=null;inbox=[];inboxBaseline=false;chatDrafts.clear();$('chatBody').value='';
+    window.TH_CONTRACT.load(null);profile=null;partners=[];thread=null;inbox=[];inboxBaseline=false;chatDrafts.clear();$('chatBody').value='';
     for(const dialog of document.querySelectorAll('dialog[open]'))dialog.close();
     $('chatLog').replaceChildren();$('partnerList').replaceChildren();
     orderAttempt=null;pendingMessage=null;
@@ -102,7 +103,7 @@
     $('customerLogout').hidden=!profile;
     $('requesterProfile').hidden = !profile; $('requesterCard').hidden = !profile;
     if (profile) {
-      updateSalesCard();
+      await window.TH_CONTRACT.load(profile.clientId);updateSalesCard();
       $('profileCompany').textContent = profile.company; $('profileName').textContent = profile.name;
       $('profilePhone').textContent = profile.phone; $('profileAddress').textContent = (profile.address + ' ' + profile.detail).trim() || '등록 주소 없음';
       await loadPartners();
@@ -367,7 +368,8 @@
   }
   function payload(targetForm = form) {
     const values = Object.fromEntries(new FormData(targetForm).entries());
-    return { service: values.serviceType || '일반 배송', fields: values, nightEnabled: window.TH_PORTAL.nightEnabled, nightRate: window.TH_PORTAL.nightRate,
+    if(targetForm===form){for(const id of ['paymentMethod','splitPair','splitRatio'])values[id]=$(id).value;values.splitPayment=$('splitPayment').checked?'on':'';}
+    return { contract:targetForm===form?window.TH_CONTRACT.data():null,service: values.serviceType || '일반 배송', fields: values, nightEnabled: window.TH_PORTAL.nightEnabled, nightRate: window.TH_PORTAL.nightRate,
       quote: targetForm === form ? window.TH_FARE.quote(window.TH_MAP.getDistance()) : null,
       locations: targetForm === form ? window.TH_ORDER.routeLocations().map(p => ({ label: p.label, address: p.address.value, detail: p.detail.value, person: p.person.value, phone: p.phone.value })) : [] };
   }
@@ -375,6 +377,7 @@
     const button = targetDoc.getElementById('sms'), edit = targetDoc.getElementById('edit'), message = targetDoc.getElementById('message');
     button.disabled = edit.disabled = true;
     try {
+      const previousContract=JSON.stringify(window.TH_CONTRACT.data());if(profile&&targetForm===form){await window.TH_CONTRACT.load(profile.clientId);if(previousContract!==JSON.stringify(window.TH_CONTRACT.data())){orderAttempt=null;window.TH_FARE.renderReview(window.TH_MAP.getDistance());throw Error('구간 약정요금이 변경되었습니다. 요금과 결제를 다시 확인해 주세요.');}}
       const previousNight = window.TH_PORTAL.nightRate; await refreshSettings();
       requireMember();
       if (targetForm === form && previousNight !== window.TH_PORTAL.nightRate) throw Error('야간요금 적용 시간이 바뀌었습니다. 최종 요금을 다시 확인하고 접수해 주세요.');
@@ -401,7 +404,7 @@
       if (!mode) throw Error('주문 화면을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
       requireMember();
       if (profile) { const fresh = await api.rpc('th6_profile'); if (!fresh) throw Error('계정이 비활성화되었습니다. 사무실에 문의해 주세요.'); profile = fresh; }
-      await refreshSettings(); originalSubmit(e);
+      await refreshSettings();if(profile)await window.TH_CONTRACT.load(profile.clientId); originalSubmit(e);
       if (!$('review').hidden) {
         const who = person(true); if (profile) $('summary').textContent = '[의뢰자] ' + profile.company + ' / ' + who.name + ' / ' + who.phone + '\n\n' + $('summary').textContent;
         reviewCards();
