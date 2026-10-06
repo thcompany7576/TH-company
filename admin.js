@@ -130,7 +130,12 @@
       if (locations?.length) {
         const grid = text('div', '', 'order-route');
         for (const p of locations) {
-          grid.append(text('p',p.label+'　'+p.address));extra.append(text('p',p.label+' · '+[p.address,p.detail,p.person,p.phone].filter(Boolean).join(' · ')));
+          const address=String(p.address||'').trim();
+          const mapAddress=()=>{const link=text('a',address,'order-address');link.href='https://map.kakao.com/link/search/'+encodeURIComponent(address);link.target='_blank';link.rel='noopener noreferrer';link.title='카카오맵에서 주소 검색';link.setAttribute('aria-label',p.label+' '+address+' · 카카오맵에서 검색');return link;};
+          const routeLine=text('p',p.label+'　'),detailLine=text('p',p.label+' · ');
+          if(address){routeLine.append(mapAddress());detailLine.append(mapAddress());}
+          const detail=[p.detail,p.person,p.phone].filter(Boolean).join(' · ');if(detail)detailLine.append(document.createTextNode((address?' · ':'')+detail));
+          grid.append(routeLine);extra.append(detailLine);
         }
         card.append(grid);
       }
