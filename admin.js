@@ -102,7 +102,7 @@
       const data = await api.api('/rest/v1/th6_requests?select=*&status=eq.' + status + '&order=created_at.desc,id.desc&limit=50&offset=' + offset);
       if (stamp !== generation || !staff) return;
       const ids = new Set(rows.map(r => r.id)); rows.push(...data.filter(r => !ids.has(r.id))); offset += data.length;
-      $('more').hidden = data.length < 50; renderOrders(); notice('주문을 확인했습니다.');
+      $('more').hidden = data.length < 50; renderOrders(); await refreshHeldCount(); notice('주문을 확인했습니다.');
     } catch (e) { notice(e.message); }
     finally { if (stamp === generation) $('refresh').disabled = $('more').disabled = false; }
   }
@@ -451,6 +451,19 @@
     if(!badge){badge=text('span','','badge');tab.append(document.createTextNode(' '),badge);}
     badge.textContent=count||'';badge.hidden=!count;
   }
+  async function refreshHeldCount() {
+    let count=0, chunk;
+    do {
+      chunk=await api.api('/rest/v1/th6_requests?select=id&status=eq.held&expires_at=gt.'+encodeURIComponent(new Date().toISOString())+'&order=id.asc&limit=1000&offset='+count);
+      if(!staff)return;
+      count+=chunk.length;
+    } while(chunk.length===1000);
+    const tab=document.querySelector('[data-status="held"]');
+    let badge=tab.querySelector('.badge');
+    if(!badge){badge=text('span','','badge');tab.append(document.createTextNode(' '),badge);}
+    badge.textContent=count?count+'건':'';badge.hidden=!count;
+    tab.setAttribute('aria-label','보류'+(count?' '+count+'건':''));
+  }
   async function poll() {
     if(!staff||document.hidden||polling)return;polling=true;
     try {
@@ -468,7 +481,7 @@
       if(page==='settings'&&owner())await loadSettings();
       if(orderChanged&&page==='orders')await loadOrders(true);
       if((chatChanged||orderChanged)&&page==='chat'){await loadThreads();if(currentThread)await readAdminChat();result.unread=threads.filter(t=>t.unread).length;}
-      showOrderWaitingCount(result.pending||0);
+      showOrderWaitingCount(result.pending||0);await refreshHeldCount();
       $('unreadCount').textContent=result.unread||'';$('unreadCount').hidden=!result.unread;
     }catch(e){notice('새 주문 확인 중 연결 오류: '+e.message);}finally{polling=false;}
   }
