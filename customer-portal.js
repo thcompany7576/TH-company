@@ -6,6 +6,7 @@
   const memberApp = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   let profile = null, partners = [], mode = null, settingsReady = false, thread = null, polling = false;
   let pendingMessage = null, orderAttempt = null, loadingSettings = null, unread = 0;
+  $('compactService').onchange=()=>{const c=[...document.querySelectorAll('[data-choice="serviceType"]')].find(c=>c.value===$('compactService').value);if(c&&!c.disabled){c.checked=true;c.dispatchEvent(new Event('change',{bubbles:true}));}};
   const memoryKey = 'th6:threads';
   let inbox = [], inboxLoading = null, inboxBaseline=false, inboxPage=0; const chatDrafts=new Map();
   const orderNumber=t=>String(t.orderNumber||'확인 중');
@@ -44,6 +45,7 @@
         control.disabled = !settings.services?.[control.value];
         const note = control.parentElement.querySelector('[data-service-state]');
         if (note) note.textContent = control.disabled ? '서비스 준비중' : '';
+        const option=[...$('compactService').options].find(o=>o.value===control.value);if(option){option.disabled=control.disabled;option.textContent=control.value+(control.disabled?' · 준비 중':'');}
       }
       if (changed) { form.dispatchEvent(new Event('change', { bubbles: true })); if (!$('review').hidden) window.TH_FARE.renderReview(window.TH_MAP.getDistance()); }
       return settings;

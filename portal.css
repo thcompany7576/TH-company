@@ -15,3 +15,15 @@
 .customer-inbox-footer{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}.customer-inbox-footer button{padding:8px 12px;font-size:13px}.customer-inbox-footer>div{display:flex;gap:8px}
 #chatDialog{overflow:auto;width:min(620px,calc(100% - 24px))}#chatDialog h2{font-size:19px}#chatDialog .chat-head{align-items:flex-start}#chatDialog .chat-log{height:clamp(160px,42dvh,400px)}#chatDialog .chat-bubble{font-size:14px}#chatDialog .chat-error:empty,#customerInboxError:empty{display:none}
 @media(max-width:600px){#customerOrderList.inquiry-grid{grid-template-columns:1fr}.customer-inbox-footer button{min-height:44px}}
+
+/* Compact customer identity and service selection. */
+[data-surface=customer] #requesterCard,[data-surface=customer] #serviceChooser{padding:14px 18px;margin:12px 0}
+#requesterProfile .profile-summary{display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center;font-size:15px}
+#requesterProfile details{margin-top:8px}#requesterProfile summary{cursor:pointer;font-size:13px;color:var(--th-muted)}
+#requesterProfile .profile-value{padding:0;margin:8px 0}#requesterProfile .portal-note{margin:8px 0 0}
+.compact-service .service-row{display:flex;align-items:center;gap:16px;margin:0;font-weight:bold}.compact-service select{width:auto;min-width:180px;margin:0;padding:8px 12px}
+.compact-service .delivery-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin-top:8px}.compact-service .switch-list{margin:0;gap:8px 16px}.compact-service .portal-note{margin:8px 0 0;font-size:12px}
+.compact-fare-note{margin:12px 0;font-size:14px}.compact-fare-note p{margin:0}
+[data-surface=customer] #activeOrderList .customer-order-item{padding:10px 12px;min-height:0;margin:6px 0;background:var(--th-surface-soft);color:var(--th-ink)}
+@media(max-width:560px){.compact-service .service-row{gap:10px}.compact-service select{flex:1;min-width:0}.compact-service .delivery-row>strong{font-size:14px}}
+#activeOrderList .inquiry-top{display:flex;align-items:center;gap:8px}#activeOrderList .inquiry-preview{display:none}.compact-service .delivery-switches{gap:6px 12px}.compact-service .delivery-switches label{font-size:14px;white-space:nowrap}.compact-service .delivery-switches label:first-child{order:3}@media(max-width:560px){.compact-service .delivery-switches{gap:6px 10px}.compact-service .delivery-switches label{font-size:13px}.compact-service .delivery-row{gap:6px}}
