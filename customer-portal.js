@@ -22,11 +22,11 @@
   }
   const text = (tag, value, className) => { const el = document.createElement(tag); el.textContent = value; if (className) el.className = className; return el; };
   function savedThreads() {
-    try { return JSON.parse(localStorage.getItem(memoryKey) || '[]').filter(t => t?.id && /^[a-f0-9]{64}$/.test(t.token) && t.time > Date.now() - 48 * 3600000); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(memoryKey) || '[]').filter(t => t?.id && /^[a-f0-9]{64}$/.test(t.token)); } catch { return []; }
   }
   function rememberThread() {
     const rows = savedThreads().filter(t => t.id !== thread.id);
-    try { localStorage.setItem(memoryKey, JSON.stringify([thread, ...rows].slice(0, 15))); } catch {
+    try { localStorage.setItem(memoryKey, JSON.stringify([thread, ...rows].slice(0, 100))); } catch {
       $('chatError').textContent = '이 기기에서는 문의 확인정보를 보관할 수 없습니다. 페이지를 닫기 전에 답변을 확인해 주세요.';
     }
     renderThreadSelector();
@@ -162,24 +162,43 @@
     if(inboxLoading)return inboxLoading;
     const who=account();
     inboxLoading=(async()=>{
-      const known=savedThreads().filter(t=>t.account===who);
+      const known=savedThreads().filter(t=>profile?t.account===who:String(t.account||'').startsWith('guest:'));
       const data=await api.rpc('th6_customer_threads',{p_threads:known.map(t=>({id:t.id,token:t.token}))});
       if(account()!==who)return;
+      const live=new Set(data.map(t=>t.id)), checked=new Set(known.map(t=>t.id));
+      try{localStorage.setItem(memoryKey,JSON.stringify(savedThreads().filter(t=>!checked.has(t.id)||live.has(t.id)).slice(0,100)));}catch{}
       if(inboxBaseline){
         const changed=data.filter(t=>{const old=inbox.find(r=>r.id===t.id);return old&&((Number(t.unread)>0&&t.updatedAt!==old.updatedAt)||t.status!==old.status||t.fare!==old.fare);});
         if(changed.length){const t=changed[0],old=inbox.find(r=>r.id===t.id);const kind=t.status!==old.status?({assigned:'assigned',completed:'completed',held:'held',approved:'approved',pending:'restored'}[t.status]||'reply'):t.fare!==old.fare?'fare':'reply';await window.TH_SOUNDS.play(kind);}
       }
       inboxBaseline=true;inbox=data;
       if($('chatDialog').open&&thread&&!inbox.some(t=>t.id===thread.id)){const removed=thread.id;$('chatDialog').close();chatDrafts.delete(removed);thread=null;$('chatLog').replaceChildren();$('customerInboxError').textContent='완료되거나 보관 기간이 지난 대화입니다.';}
-      renderThreadSelector();renderInbox();
+      renderThreadSelector();renderInbox();renderActiveOrders();
       unread=inbox.reduce((sum,t)=>sum+Number(t.unread||0),0);$('chatUnread').textContent=unread;$('chatUnread').hidden=!unread;
     })();try{await inboxLoading;}finally{inboxLoading=null;}
   }
   function chooseThread(t) {
-    const saved=savedThreads().find(r=>r.id===t.id&&r.account===account());
+    const saved=savedThreads().find(r=>r.id===t.id&&(profile?r.account===account():String(r.account||'').startsWith('guest:')));
     if(!saved&&!profile)throw Error('이 기기의 문의 확인정보가 없습니다.');
     thread={...t,...saved,id:t.id,orderId:t.orderId,orderNumber:t.orderNumber,name:t.name,phone:t.phone,account:account(),token:saved?.token||randomToken(),time:saved?.time||new Date(t.time).getTime()};rememberThread();
     $('chatIdentity').hidden=true;$('chatGuestName').value=thread.name||'';$('chatGuestPhone').value=thread.phone||'';
+  }
+  function renderActiveOrders() {
+    const root=$('activeOrderList');root.replaceChildren();
+    const active=inbox.filter(t=>t.orderId&&['pending','approved','assigned','held'].includes(t.status));
+    $('activeOrders').hidden=!active.length;
+    $('activeOrderCount').textContent=active.length+'건';
+    for(const t of active){
+      const b=text('button','','customer-order-item inquiry-item'+(t.unread?' unread':''));b.type='button';b.setAttribute('aria-haspopup','dialog');
+      const top=text('span','','inquiry-top');top.append(text('strong','주문 '+orderNumber(t)));
+      if(t.unread)top.append(text('span',String(t.unread),'chat-unread'));
+      b.append(top,text('strong',statusLabels[t.status]),text('small',Number.isFinite(t.fare)?'운행요금 '+t.fare.toLocaleString('ko-KR')+'원':'요금 확인 중'));
+      const locations=Array.isArray(t.locations)?t.locations:[];
+      if(locations.length)b.append(text('span',locations.map(p=>(p.label||'주소')+' · '+(p.address||'')).join(' → '),'inquiry-preview'));
+      b.append(text('small','눌러서 주문 안내 · 대화 확인'));
+      b.onclick=()=>openConversation(t).catch(e=>$('activeOrderError').textContent=e.message);root.append(b);
+    }
+    $('activeOrderError').textContent='';
   }
   function renderInbox() {
     const root=$('customerOrderList');root.replaceChildren();
@@ -429,7 +448,7 @@
       await refreshInbox();
       if(profile){const current=await api.rpc('th6_profile');if(!current){await api.logout();return;}profile=current;updateSalesCard();}
       if ($('chatDialog').open && thread){await readChat();await refreshInbox();}
-    } catch (e) { if ($('chatDialog').open) $('chatError').textContent = e.message; }
+    } catch (e) { if ($('chatDialog').open) $('chatError').textContent = e.message; $('activeOrderError').textContent='주문 상태를 확인하지 못했습니다. 잠시 후 다시 확인합니다.'; }
     finally { polling = false; }
   }
   setInterval(tick, 10000);
