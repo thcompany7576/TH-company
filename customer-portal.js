@@ -285,6 +285,20 @@
   $('customerLogout').onclick = async () => {
     await api.logout(); location.reload();
   };
+  function extraPartnerChoice(box) {
+    let wrap=box.querySelector('[data-extra-partner-wrap]');
+    if(!wrap){wrap=document.createElement('label');wrap.dataset.extraPartnerWrap='';wrap.append(text('span','거래처 선택'));const select=document.createElement('select');select.dataset.extraPartner='';select.setAttribute('aria-label','경유지 거래처 선택');wrap.append(select);box.querySelector('legend').after(wrap);}
+    wrap.hidden=!profile;const select=wrap.querySelector('select'),value=select.value;select.replaceChildren(new Option('저장한 거래처 선택',''));
+    for(const p of partners)select.append(new Option(p.title,p.id));select.value=value;
+    select.onchange=()=>{
+      const p=partners.find(p=>p.id===select.value);if(!p||!profile)return;
+      const address=box.querySelector('[data-searched-address]');address.value=p.address;
+      Object.assign(address.dataset,p.address_meta||{});address.dataset.selectedAddress=p.address;address.dataset.businessName=p.title;address.dataset.businessAddress=p.address;address.dataset.businessDetail=p.detail||'';
+      box.querySelector('[data-extra-detail]').value=p.detail||'';box.querySelector('[data-extra-person]').value=p.person||'';box.querySelector('[data-phone]').value=p.phone||'';
+      address.dispatchEvent(new Event('input',{bubbles:true}));address.dispatchEvent(new Event('change',{bubbles:true}));
+    };
+  }
+  window.addEventListener('th:extra-added',e=>extraPartnerChoice(e.detail));
   async function loadPartners() {
     if (!profile) return;
     partners = await api.api('/rest/v1/th6_partners?select=*&client_id=eq.' + profile.clientId + '&order=title.asc');
@@ -293,10 +307,12 @@
       for (const p of partners) { const opt = text('option', p.title); opt.value = p.id; select.append(opt); }
       select.value = value;
     }
+    document.querySelectorAll("fieldset.stop").forEach(extraPartnerChoice);
     renderPartners();
   }
   function fillLocation(prefix, location) {
     const from = prefix === 'from', address = form.elements[prefix];
+    address.dataset.businessName=location.title||location.company||'';address.dataset.businessAddress=location.address||'';address.dataset.businessDetail=location.detail||'';
     address.value = location.address; for (const key of ['selectedAddress', 'areaCode', 'township', 'county']) delete address.dataset[key];
     Object.assign(address.dataset, location.address_meta || location.addressMeta || {}); address.dataset.selectedAddress = location.address;
     form.elements[prefix + 'Detail'].value = location.detail || '';
@@ -392,7 +408,7 @@
     if(targetForm===form){for(const id of ['paymentMethod','splitPair','splitRatio'])values[id]=$(id).value;values.splitPayment=$('splitPayment').checked?'on':'';}
     return { contract:targetForm===form?window.TH_CONTRACT.data():null,service: values.serviceType || '일반 배송', fields: values, nightEnabled: window.TH_PORTAL.nightEnabled, nightRate: window.TH_PORTAL.nightRate,
       quote: targetForm === form ? window.TH_FARE.quote(window.TH_MAP.getDistance()) : null,
-      locations: targetForm === form ? window.TH_ORDER.routeLocations().map(p => ({ label: p.label, address: p.address.value, detail: p.detail.value, person: p.person.value, phone: p.phone.value })) : [] };
+      locations: targetForm === form ? window.TH_ORDER.routeLocations().map(p => ({ label: p.label, businessName: p.businessName||'', address: p.address.value, detail: p.detail.value, person: p.person.value, phone: p.phone.value })) : [] };
   }
   async function submit(targetForm, summaryText, targetDoc) {
     const button = targetDoc.getElementById('sms'), edit = targetDoc.getElementById('edit'), message = targetDoc.getElementById('message');
