@@ -120,11 +120,12 @@
     for (const r of selected) {
       const card = text('article', '', 'order-card'), head = text('div', '', 'section-head');
       card.dataset.orderId=r.id;
-      head.append(text('h3', (r.payload?.requester?.name||r.payload?.company||'고객')+' · 주문 ' + orderNumber(r)), text('span', labels[r.status], 'tag')); card.append(head);
+      head.append(text('h3', (r.payload?.requester?.name||r.payload?.company||'고객')+' · 주문 ' + orderNumber(r)), text('span', r.status==='held'&&r.held_from==='pending'?'영업자 승인 전 보류':labels[r.status], 'tag')); card.append(head);
       const who = r.payload?.requester;
       const extra=text('details','','order-extra');extra.append(text('summary','상세 보기 · 연락처 / 주문 내용'));
       extra.append(text('p', (r.payload?.company ? r.payload.company + ' · ' : '비로그인 고객 · ') + (who ? who.name + ' / ' + who.phone : '이전 주문')));
       extra.append(text('p', koreaTime(r.created_at) + ' 접수', 'portal-note'));
+      if(r.status==='held'&&r.held_from==='pending')card.append(text('p','다시 진행하면 담당 영업자가 확인·승인한 뒤 관제에 전달됩니다.','portal-note'));
       if(r.status==='held')extra.append(text('p','자동 취소·삭제 예정: '+koreaTime(r.expires_at),'portal-note'));
       const locations = r.payload?.locations;
       if (locations?.length) {
@@ -155,7 +156,7 @@
       if (r.thread_id && !owner()) actions.append(button('고객 문의 / 답변', async () => { await selectPage('chat'); await openThread(r.thread_id); }));
       for (const next of owner() ? (r.status==='approved'?['assigned','held']:r.status==='assigned'?['completed','held']:r.status==='held'?['restore']:[]) : (r.status==='pending'?['held']:r.status==='held'&&r.held_from==='pending'?['restore']:[])) {
         const b = button(next === 'restore' ? '다시 진행' : next === 'assigned' ? '기사 배정 완료' : labels[next], async () => {
-          const question = next === 'assigned' ? '코리아센터에서 기사 배정을 확인했나요? 고객 문의함으로 배정 알림을 보냅니다.' : next === 'restore' ? '주문을 다시 진행할까요? 승인된 주문은 관제 배정 대기로 돌아가며 기사 배정을 다시 확인해야 합니다.' : next === 'held' ? '이 주문을 보류할까요? 보류 후 48시간 내에 복구하지 않으면 자동 취소·삭제됩니다.' : '이 주문을 완료 처리할까요?';
+          const question = next === 'assigned' ? '코리아센터에서 기사 배정을 확인했나요? 고객 문의함으로 배정 알림을 보냅니다.' : next === 'restore' ? (r.held_from==='pending'?'주문을 영업자 확인 중으로 되돌릴까요? 영업자 승인 후 관제로 전달됩니다.':'주문을 관제 배정 대기로 되돌릴까요? 기사 배정을 다시 확인해야 합니다.') : next === 'held' ? '이 주문을 보류할까요? 보류 후 48시간 내에 복구하지 않으면 자동 취소·삭제됩니다.' : '이 주문을 완료 처리할까요?';
           if (!confirm(question)) return; b.disabled = true;
           try { await api.rpc('th6_set_status', { p_id: r.id, p_status: next }); await loadOrders(true); notice('주문을 ' + (next==='restore'?'다시 진행':labels[next]) + ' 처리했습니다.'); }
           catch (e) { notice(e.message); b.disabled = false; }
