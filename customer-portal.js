@@ -10,7 +10,7 @@
   const memoryKey = 'th6:threads';
   let inbox = [], inboxLoading = null, inboxBaseline=false, inboxPage=0; const chatDrafts=new Map();
   const orderNumber=t=>String(t.orderNumber||'확인 중');
-  const statusLabels={pending:'영업자 확인 중',approved:'관제 배정 대기',assigned:'기사 배정 완료',completed:'완료',held:'보류'};
+  const statusLabels={pending:'영업자 확인 중',approved:'관제 배정 대기',assigned:'기사 배정 완료',completed:'완료',held:'보류',cancelled:'취소'};
   const account=()=>profile?.contactId||'guest:'+sales;
   function updateSalesCard() {
     if(!profile)return;
@@ -187,9 +187,9 @@
   }
   function renderActiveOrders() {
     const root=$('activeOrderList');root.replaceChildren();
-    const active=inbox.filter(t=>t.orderId&&['pending','approved','assigned','held'].includes(t.status));
+    const active=inbox.filter(t=>t.orderId&&['pending','approved','assigned','held','cancelled'].includes(t.status));
     $('activeOrders').hidden=!active.length;
-    $('activeOrderCount').textContent=active.length+'건';
+    $('activeOrderCount').textContent=active.length+'건'+(active.some(t=>t.status==='cancelled')?' · 취소 포함':'');
     for(const t of active){
       const b=text('button','','customer-order-item inquiry-item'+(t.unread?' unread':''));b.type='button';b.setAttribute('aria-haspopup','dialog');
       const top=text('span','','inquiry-top');top.append(text('strong','주문 '+orderNumber(t)));

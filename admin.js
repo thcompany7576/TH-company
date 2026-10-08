@@ -112,9 +112,9 @@
     return '[주문 '+orderNumber(r)+']\n'+body+(r.sales_notes?'\n\n[영업자 전달 특이사항]\n'+r.sales_notes:'');
   }
   function renderOrders() {
-    $('orderSearch').hidden = !['completed','held'].includes(status);
+    $('orderSearch').hidden = !['completed','held','cancelled'].includes(status);
     const q = $('orderSearch').hidden ? '' : $('search').value.trim().toLowerCase(), root = $('orders'); root.replaceChildren();
-    $('count').textContent = labels[status] + ' ' + rows.length + '건 (불러온 목록) · '+(status==='held'?'보류 후 48시간 내 복구 가능':'48시간 보관 · 복구 시 보관 시간 갱신');
+    $('count').textContent = labels[status] + ' ' + rows.length + '건 (불러온 목록) · '+(status==='cancelled'?'취소 후 12시간 내 복구 가능':status==='held'?'보류 후 48시간 내 복구 가능':'48시간 보관 · 복구 시 보관 시간 갱신');
     const selected = rows.filter(r => (r.summary + ' ' + orderNumber(r)).toLowerCase().includes(q));
     if (!selected.length) root.append(text('p', q ? '검색 결과가 없습니다.' : labels[status] + ' 주문이 없습니다.'));
     for (const r of selected) {
@@ -126,6 +126,7 @@
       extra.append(text('p', (r.payload?.company ? r.payload.company + ' · ' : '비로그인 고객 · ') + (who ? who.name + ' / ' + who.phone : '이전 주문')));
       extra.append(text('p', koreaTime(r.created_at) + ' 접수', 'portal-note'));
       if(r.status==='held'&&r.held_from==='pending')card.append(text('p','다시 진행하면 담당 영업자가 확인·승인한 뒤 관제에 전달됩니다.','portal-note'));
+      if(r.status==='cancelled')card.append(text('p','복구 가능: '+koreaTime(r.expires_at)+'까지','portal-note'));
       if(r.status==='held')extra.append(text('p','자동 취소·삭제 예정: '+koreaTime(r.expires_at),'portal-note'));
       const locations = r.payload?.locations;
       if (locations?.length) {
@@ -154,9 +155,9 @@
         const check=button('조정 요금 확인 · 배정 승인',async()=>{if(!confirm('운행요금 '+r.agreed_fare.toLocaleString('ko-KR')+'원을 확인했나요? 확인 후 기사 배정이 가능합니다.'))return;check.disabled=true;try{await api.rpc('th6_confirm_fare',{p_id:r.id,p_fare:r.agreed_fare});await loadOrders(true);notice('조정 요금을 확인했습니다. 기사 배정을 진행해 주세요.');}catch(e){notice(e.message);check.disabled=false;}},'');actions.append(check);
       }
       if (r.thread_id && !owner()) actions.append(button('고객 문의 / 답변', async () => { await selectPage('chat'); await openThread(r.thread_id); }));
-      for (const next of owner() ? (r.status==='approved'?['assigned','held']:r.status==='assigned'?['completed','held']:r.status==='held'?['restore']:[]) : (r.status==='pending'?['held']:r.status==='held'&&r.held_from==='pending'?['restore']:[])) {
+      for (const next of owner() ? (r.status==='approved'?['assigned','held']:r.status==='assigned'?['completed','held']:r.status==='held'?['restore','cancelled']:r.status==='cancelled'?['restore']:[]) : (r.status==='pending'?['held']:r.status==='held'? (r.held_from==='pending'?['restore','cancelled']:['cancelled']):r.status==='cancelled'&&r.held_from==='pending'?['restore']:[])) {
         const b = button(next === 'restore' ? '다시 진행' : next === 'assigned' ? '기사 배정 완료' : labels[next], async () => {
-          const question = next === 'assigned' ? '코리아센터에서 기사 배정을 확인했나요? 고객 문의함으로 배정 알림을 보냅니다.' : next === 'restore' ? (r.held_from==='pending'?'주문을 영업자 확인 중으로 되돌릴까요? 영업자 승인 후 관제로 전달됩니다.':'주문을 관제 배정 대기로 되돌릴까요? 기사 배정을 다시 확인해야 합니다.') : next === 'held' ? '이 주문을 보류할까요? 보류 후 48시간 내에 복구하지 않으면 자동 취소·삭제됩니다.' : '이 주문을 완료 처리할까요?';
+          const question = next === 'assigned' ? '코리아센터에서 기사 배정을 확인했나요? 고객 문의함으로 배정 알림을 보냅니다.' : next === 'restore' ? (r.held_from==='pending'?'주문을 영업자 확인 중으로 되돌릴까요? 영업자 승인 후 관제로 전달됩니다.':'주문을 관제 배정 대기로 되돌릴까요? 기사 배정을 다시 확인해야 합니다.') : next === 'cancelled' ? '이 주문을 취소 목록으로 옮길까요? 취소 후 12시간 동안만 복구할 수 있으며, 이후 내역과 연결 대화가 자동 삭제됩니다.' : next === 'held' ? '이 주문을 보류할까요? 보류 후 48시간 내에 복구하지 않으면 자동 취소·삭제됩니다.' : '이 주문을 완료 처리할까요?';
           if (!confirm(question)) return; b.disabled = true;
           try { await api.rpc('th6_set_status', { p_id: r.id, p_status: next }); await loadOrders(true); notice('주문을 ' + (next==='restore'?'다시 진행':labels[next]) + ' 처리했습니다.'); }
           catch (e) { notice(e.message); b.disabled = false; }
