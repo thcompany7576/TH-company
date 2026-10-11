@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+  if(window.TH_DIRECT_MODE)return;
   let promptEvent;
   const appName=document.documentElement.dataset.surface==='admin'?'관리앱':'주문앱';
   const buttons = document.querySelectorAll('[data-install]'), hints = document.querySelectorAll('[data-install-hint]');

@@ -3,11 +3,11 @@
   const $ = id => document.getElementById(id), api = window.TH_API;
   const form = $('order');
   const sales = new URLSearchParams(location.search).get('sales') || '';
-  const memberApp = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const memberApp = !window.TH_DIRECT_MODE && (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true);
   let profile = null, partners = [], mode = null, settingsReady = false, thread = null, polling = false;
   let pendingMessage = null, orderAttempt = null, loadingSettings = null, unread = 0;
   $('compactService').onchange=()=>{const c=[...document.querySelectorAll('[data-choice="serviceType"]')].find(c=>c.value===$('compactService').value);if(c&&!c.disabled){c.checked=true;c.dispatchEvent(new Event('change',{bubbles:true}));}};
-  const memoryKey = 'th6:threads';
+  const memoryKey = window.TH_DIRECT_MODE ? 'th6:direct-unused' : 'th6:threads';
   let inbox = [], inboxLoading = null, inboxBaseline=false, inboxPage=0; const chatDrafts=new Map();
   const orderNumber=t=>String(t.orderNumber||'확인 중');
   const statusLabels={pending:'영업자 확인 중',approved:'관제 배정 대기',assigned:'기사 배정 완료',completed:'완료',held:'보류',cancelled:'취소'};
@@ -23,9 +23,11 @@
   }
   const text = (tag, value, className) => { const el = document.createElement(tag); el.textContent = value; if (className) el.className = className; return el; };
   function savedThreads() {
+    if(window.TH_DIRECT_MODE)return [];
     try { return JSON.parse(localStorage.getItem(memoryKey) || '[]').filter(t => t?.id && /^[a-f0-9]{64}$/.test(t.token)); } catch { return []; }
   }
   function rememberThread() {
+    if(window.TH_DIRECT_MODE)return;
     const rows = savedThreads().filter(t => t.id !== thread.id);
     try { localStorage.setItem(memoryKey, JSON.stringify([thread, ...rows].slice(0, 100))); } catch {
       $('chatError').textContent = '이 기기에서는 문의 확인정보를 보관할 수 없습니다. 페이지를 닫기 전에 답변을 확인해 주세요.';
@@ -42,6 +44,7 @@
       window.TH_PORTAL.nightEnabled = settings.nightEnabled; window.TH_PORTAL.nightRate = settings.nightRate; settingsReady = true;
       for (const control of document.querySelectorAll('[data-choice="serviceType"]')) {
         if (control.value === '일반 배송') continue;
+        if(window.TH_DIRECT_MODE){control.disabled=true;const opt=[...$('compactService').options].find(x=>x.value===control.value);if(opt)opt.disabled=true;continue;}
         control.disabled = !settings.services?.[control.value];
         const note = control.parentElement.querySelector('[data-service-state]');
         if (note) note.textContent = control.disabled ? '서비스 준비중' : '';
@@ -115,6 +118,7 @@
     renderThreadSelector();await refreshInbox();
   }
   function person(forOrder = false) {
+    if(window.TH_DIRECT_MODE)return window.TH_DIRECT.person();
     if (profile) return { name: profile.name, phone: profile.phone };
     if(!forOrder&&thread?.orderId)return {name:thread.name,phone:thread.phone};
     const sender = { name: form.elements.sender.value.trim(), phone: form.elements.senderPhone.value.trim() };
@@ -460,7 +464,7 @@
   });
   window.TH_PORTAL = { nightEnabled: false, nightRate: 0, get profile() { return profile; }, refreshSettings };
   async function tick() {
-    if (document.hidden || polling || !mode) return; polling = true;
+    if (window.TH_DIRECT_MODE || document.hidden || polling || !mode) return; polling = true;
     try {
       await refreshSettings();
       await refreshInbox();
@@ -478,10 +482,10 @@
       if (!route) throw Error('사용할 수 없는 영업자 링크입니다. 안내받은 주소를 확인해 주세요.');
       $('salesRoute').textContent = route.name + ' 담당 접수 · 주문과 문의가 담당자에게 전달됩니다.';
     } catch (e) { $('entryError').textContent = e.message; $('guestOrderButton').disabled = true; $('chatOpen').disabled = true; return; }
-    await api.restore();
-    try {
+    try { await api.restore();
+
       await refreshSettings();
-      if (api.session) { profile = await api.rpc('th6_profile');if(!profile)await api.logout(); }
+      if (api.session) { profile = await api.rpc('th6_profile');if(!profile&&!window.TH_DIRECT_MODE)await api.logout(); }
       await enter(profile?'member':'guest');
     } catch (e) { $('entryError').textContent = e.message; }
   })();

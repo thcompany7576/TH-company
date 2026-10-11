@@ -29,13 +29,17 @@
     try{await navigator.clipboard.writeText($('ownCardLink').href);$('ownCardNotice').textContent='명함 링크를 복사했습니다.';}
     catch{$('ownCardNotice').textContent='아래 링크를 선택해서 복사해 주세요.';const selection=getSelection(),range=document.createRange();range.selectNodeContents($('ownCardLink'));selection.removeAllRanges();selection.addRange(range);}
   };
+  $('directOrderOpen').onclick=()=>{if(staff?.role!=='sales')return;$('directOrderFrame').src='order.html?direct=1';$('directOrderDialog').showModal();};
+  $('directOrderClose').onclick=()=>{if(!confirm('직접 접수 창을 닫을까요? 접수하지 않은 입력 내용은 저장되지 않습니다.'))return;$('directOrderDialog').close();$('directOrderFrame').src='about:blank';};
+  $('directOrderDialog').addEventListener('cancel',e=>{e.preventDefault();$('directOrderClose').click();});
+  window.addEventListener('message',async e=>{if(e.origin!==location.origin||e.source!==$('directOrderFrame').contentWindow||e.data?.type!=='th:direct-submitted')return;status=e.data.status==='approved'?'approved':'pending';document.querySelectorAll('[data-status]').forEach(b=>{b.className=b.dataset.status===status?'':'secondary';b.setAttribute('aria-pressed',String(b.dataset.status===status));});await loadOrders(true);notice('직접 주문을 접수했습니다.');});
   async function enter() {
     const list = await api.api('/rest/v1/th6_staff?select=*&user_id=eq.' + api.session.user.id);
     staff = list[0]; if (!staff?.active) { await api.logout(); throw Error('관리 권한이 없거나 비활성화된 계정입니다.'); }
     window.TH_SOUNDS.init(staff.user_id);
     await window.TH_PUSH.init(staff);
     $('adminTitle').textContent = 'TH company-' + (owner() ? '관제' : staff.name);
-    $('ownCardNotice').textContent='';showOwnCard();
+    $('ownCardNotice').textContent='';showOwnCard();$('directOrderOpen').hidden=staff.role!=='sales';
     status = owner() ? 'approved' : 'pending';
     document.querySelector('[data-page=chat]').hidden = false;document.querySelector('[data-page=chat]').firstChild.textContent=owner()?'고객 문의 모니터링 ':'문의함 ';$('page-chat').querySelector('h2').textContent=owner()?'고객 문의 모니터링':'문의함';$('replyForm').hidden=owner();$('page-chat').querySelector('.portal-note').textContent=owner()?'영업자별 고객 대화를 읽기 전용으로 확인합니다. 답변은 담당 영업자가 보냅니다.':'영업자 링크로 들어온 고객의 주문·문의가 담당 영업자에게 연결됩니다.';
     document.querySelectorAll('[data-status]').forEach(b=>{b.hidden=owner()&&b.dataset.status==='pending';b.className=b.dataset.status===status?'':'secondary';b.setAttribute('aria-pressed',String(b.dataset.status===status));});
@@ -166,16 +170,16 @@
       if(r.approved_at)extra.append(text('p','영업자 승인: '+koreaTime(r.approved_at),'portal-note'));
       if(r.sales_notes)card.append(text('p','특이사항 · '+r.sales_notes,'order-note'));
       if(r.status==='pending'&&!owner()){
-        const label=text('label','관제 전달 특이사항'),notes=document.createElement('textarea');notes.maxLength=2000;notes.placeholder='관제·기사에게 전달할 내용을 적어 주세요. 없으면 비워 두세요.';label.append(notes);extra.append(label);
+        const label=text('label','관제 전달 특이사항'),notes=document.createElement('textarea');notes.maxLength=2000;notes.value=r.sales_notes||'';notes.placeholder='관제·기사에게 전달할 내용을 적어 주세요. 없으면 비워 두세요.';label.append(notes);extra.append(label);
         const adjustment=text('div','','fare-adjustment'),title=text('h4','요금 확인 · 조정');adjustment.append(title);
         const enabled=document.createElement('input');enabled.type='checkbox';const toggle=text('label','');toggle.className='inline';toggle.append(enabled,text('span','운행요금 조정'));adjustment.append(toggle);
         const fields=document.createElement('fieldset');fields.hidden=true;fields.disabled=true;
-        const price=document.createElement('input');price.type='number';price.min='1';price.max='2000000';price.step='1';price.inputMode='numeric';price.required=true;if(Number.isFinite(autoFare))price.value=autoFare;
+        const price=document.createElement('input');price.type='number';price.min='1';price.max='2000000';price.step='1';price.inputMode='numeric';price.required=true;if(Number.isFinite(displayFare))price.value=displayFare;
         const priceLabel=text('label','고객과 확인한 총 운행요금 (원 · 보증금 제외)');priceLabel.append(price);
         const reason=document.createElement('textarea');reason.maxLength=2000;reason.placeholder='고객 합의';const reasonLabel=text('label','요금 조정 사유 (선택)');reasonLabel.append(reason);
         const consent=document.createElement('input');consent.type='checkbox';consent.required=true;const consentLabel=text('label','');consentLabel.className='inline';consentLabel.append(consent,text('span','고객과 조정 운행요금을 확인했습니다.'));
         const reasonDetails=document.createElement('details');reasonDetails.append(text('summary','조정 사유 (선택)'),reasonLabel);fields.append(priceLabel,consentLabel,reasonDetails);adjustment.append(fields);card.append(adjustment);
-        enabled.onchange=()=>{fields.hidden=fields.disabled=!enabled.checked;};
+        enabled.onchange=()=>{fields.hidden=fields.disabled=!enabled.checked;};if(r.agreed_fare!=null){enabled.checked=true;enabled.onchange();reason.value=r.fare_reason||'';}
         const contractUI=window.TH_CONTRACT.decorate(r,{card,extra,adjustment,enabled,fields,price,reason,consent});
         const approve=button('주문 승인 · 관제로 전달',async()=>{
           let contractArgs;try{contractArgs=contractUI.args();}catch(e){notice(e.message);return;}
