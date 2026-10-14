@@ -306,6 +306,7 @@
   async function loadPartners() {
     if (!profile) return;
     partners = await api.api('/rest/v1/th6_partners?select=*&client_id=eq.' + profile.clientId + '&order=title.asc');
+    partners.sort((a,b)=>String(a.title||'').trim().localeCompare(String(b.title||'').trim(),'ko',{numeric:true,sensitivity:'base'}));
     for (const select of document.querySelectorAll('[data-partner-select]')) {
       const value = select.value; select.replaceChildren(); const blank = text('option', '저장한 거래처 선택'); blank.value = ''; select.append(blank);
       for (const p of partners) { const opt = text('option', p.title); opt.value = p.id; select.append(opt); }

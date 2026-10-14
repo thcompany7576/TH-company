@@ -285,6 +285,7 @@
       root.append(card);
     }
     if (!contacts.length) root.append(text('p', '등록된 로그인 계정이 없습니다.', 'portal-note'));
+    clientPartners.sort((a,b)=>String(a.title||'').trim().localeCompare(String(b.title||'').trim(),'ko',{numeric:true,sensitivity:'base'}));
     const pRoot = $('clientPartners'); pRoot.replaceChildren();
     for (const p of clientPartners) {
       const card = text('div', '', 'partner-card'); card.append(text('strong', p.title), text('p', p.address + ' ' + p.detail), text('p', p.person + ' · ' + p.phone));
