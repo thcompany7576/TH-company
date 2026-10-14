@@ -292,15 +292,20 @@
   function extraPartnerChoice(box) {
     let wrap=box.querySelector('[data-extra-partner-wrap]');
     if(!wrap){wrap=document.createElement('label');wrap.dataset.extraPartnerWrap='';wrap.append(text('span','거래처 선택'));const select=document.createElement('select');select.dataset.extraPartner='';select.setAttribute('aria-label','경유지 거래처 선택');wrap.append(select);box.querySelector('legend').after(wrap);}
-    wrap.hidden=!profile;const select=wrap.querySelector('select'),value=select.value;select.replaceChildren(new Option('저장한 거래처 선택',''));
+    let sameWrap=box.querySelector('[data-extra-profile-wrap]');
+    if(!sameWrap){sameWrap=document.createElement('label');sameWrap.dataset.extraProfileWrap='';sameWrap.className='inline';const check=document.createElement('input');check.type='checkbox';check.dataset.extraSameProfile='';sameWrap.append(check,document.createTextNode(' 의뢰자 정보와 동일'));wrap.after(sameWrap);}
+    wrap.hidden=sameWrap.hidden=!profile;const select=wrap.querySelector('select'),same=sameWrap.querySelector('input'),value=select.value;select.replaceChildren(new Option('저장한 거래처 선택',''));
     for(const p of partners)select.append(new Option(p.title,p.id));select.value=value;
-    select.onchange=()=>{
-      const p=partners.find(p=>p.id===select.value);if(!p||!profile)return;
-      const address=box.querySelector('[data-searched-address]');address.value=p.address;
-      Object.assign(address.dataset,p.address_meta||{});address.dataset.selectedAddress=p.address;address.dataset.businessName=p.title;address.dataset.businessAddress=p.address;address.dataset.businessDetail=p.detail||'';
-      box.querySelector('[data-extra-detail]').value=p.detail||'';box.querySelector('[data-extra-person]').value=p.person||'';box.querySelector('[data-phone]').value=p.phone||'';
+    function apply(location){
+      const address=box.querySelector('[data-searched-address]');address.value=location.address;
+      for(const key of ['selectedAddress','areaCode','township','county','businessName','businessAddress','businessDetail'])delete address.dataset[key];
+      Object.assign(address.dataset,location.address_meta||location.addressMeta||{});address.dataset.selectedAddress=location.address;address.dataset.businessName=location.title||location.company||'';address.dataset.businessAddress=location.address;address.dataset.businessDetail=location.detail||'';
+      box.querySelector('[data-extra-detail]').value=location.detail||'';box.querySelector('[data-extra-person]').value=location.person||location.name||'';box.querySelector('[data-phone]').value=location.phone||'';
       address.dispatchEvent(new Event('input',{bubbles:true}));address.dispatchEvent(new Event('change',{bubbles:true}));
-    };
+    }
+    select.onchange=()=>{const p=partners.find(p=>p.id===select.value);if(!p||!profile)return;same.checked=false;apply(p);};
+    same.onchange=()=>{if(!same.checked||!profile)return;if(!profile.address){same.checked=false;$('formError').textContent='사무실에 의뢰자 주소 등록을 요청해 주세요.';return;}select.value='';apply(profile);};
+    if(!same.dataset.bound){same.dataset.bound='1';box.addEventListener('input',e=>{if(!e.target.matches('[data-searched-address],[data-extra-detail]')||!same.checked||!profile)return;const a=box.querySelector('[data-searched-address]'),d=box.querySelector('[data-extra-detail]');if(a.value.trim()!==profile.address.trim()||d.value.trim()!==(profile.detail||'').trim())same.checked=false;});}
   }
   window.addEventListener('th:extra-added',e=>extraPartnerChoice(e.detail));
   async function loadPartners() {
