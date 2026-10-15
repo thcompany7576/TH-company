@@ -4,6 +4,10 @@
  let staff,profile=null,ready=null;const attempts=new Map();
  const section=document.createElement('section');section.id='directIdentity';section.innerHTML='<h2>영업자 직접 접수</h2><div class="grid"><label>의뢰자<select id="directClient"><option value="">일반 고객</option></select></label><label id="directContactLabel" hidden>의뢰자 담당자<select id="directContact"></select></label></div><div id="directGuest" class="grid"><label>고객 이름<input id="directName" maxlength="60" autocomplete="off"></label><label>고객 연락처<input id="directPhone" type="tel" maxlength="14" placeholder="010-0000-0000"></label></div><p id="directError" role="status"></p>';
  document.querySelector('main').prepend(section);
+ $('directPhone').addEventListener('input',()=>{
+  const input=$('directPhone'),digits=input.value.replace(/\D/g,'').slice(0,11),prefix=digits.startsWith('02')?2:3;
+  input.value=digits.length<=prefix?digits:digits.length<=prefix+4?digits.slice(0,prefix)+'-'+digits.slice(prefix):digits.slice(0,prefix)+'-'+digits.slice(prefix,-4)+'-'+digits.slice(-4);
+ });
  const review=document.createElement('section');review.id='directReview';review.innerHTML='<h2>관제 전달</h2><label>최종 운행요금 조정 (선택 · 원)<input id="directFare" type="number" min="1" max="2000000" step="1" placeholder="자동 계산 금액을 그대로 쓰려면 비워 두세요"></label><label>관제 전달 특이사항<textarea id="directNotes" rows="2" maxlength="2000" placeholder="없으면 비워 두세요"></textarea></label><label class="inline"><input id="directConfirmed" type="checkbox"> 고객과 주문 내용·최종 운행요금을 확인했습니다.</label><p id="directFareHint" class="portal-note"></p>';
  $('review').insertBefore(review,$('review').querySelector('.actions'));$('sms').textContent='접수 · 관제로 전달';
  const hide=document.createElement('style');hide.textContent='main>a,#chatOpen,#soundChoose,#memberLoginOpen,#memberInstall,#accountActions,#activeOrders,#customerInbox,#requesterCard,#portalEntry,#agencyView,[data-save-partner],#partnerManagerButton{display:none!important}#directIdentity{margin-top:0}#directReview{padding:12px}';document.head.append(hide);
