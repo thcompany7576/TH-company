@@ -96,14 +96,13 @@
     enter('guest').catch(e=>$('entryError').textContent=e.message);
   }
   function memberGoods() {
-    const item=form.elements.namedItem('item'),size=form.elements.itemSize;
-    item.closest('label').hidden=Boolean(profile);size.closest('label').hidden=Boolean(profile);
-    item.required=size.required=!profile;
+    const item=form.elements.namedItem('item'),size=form.elements.itemSize,weight=form.elements.itemWeight;
+    for(const control of [item,size,weight]){control.closest('label').hidden=Boolean(profile);control.required=!profile;}
     let note=$('memberGoodsNote');
     if(!note){note=text('p','','portal-note');note.id='memberGoodsNote';item.closest('label').before(note);}
     note.hidden=!profile;
-    if(profile){item.value=profile.goodsDescription?.trim()||'의뢰자 등록 물품';size.value='소';note.textContent='취급 물품: '+(profile.goodsDescription?.trim()||'미등록 · 담당자가 확인합니다.')+' · 크기 추가금 없음';}
-    else {item.value='';size.value='';}
+    if(profile){item.value=profile.goodsDescription?.trim()||'의뢰자 등록 물품';size.value='소';weight.value='5kg 미만';note.textContent='취급 물품: '+(profile.goodsDescription?.trim()||'미등록 · 담당자가 확인합니다.');}
+    else {item.value='';size.value='';weight.value='';}
     form.dispatchEvent(new Event('change',{bubbles:true}));
   }
   async function enter(nextMode) {

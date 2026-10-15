@@ -55,7 +55,7 @@
     const rows = [{ name: contract?'약정 편도요금':'편도 거리 기준 요금', amount: fare.oneWay ?? null }];
     if(distance?.roundTrip)rows.push({name:'왕복 배송 추가요금',amount:fare.roundExtra??null});
     rows.push({ name: '물품 크기 (' + $('itemSize').value + ')', amount: window.TH_PORTAL?.profile ? 0 : (settings.size[$('itemSize').value] ?? null) });
-    rows.push({ name: '물품 무게 (' + $('itemWeight').value + ')', amount: settings.weight[$('itemWeight').value] ?? null });
+    rows.push({ name: '물품 무게 (' + $('itemWeight').value + ')', amount: window.TH_PORTAL?.profile ? 0 : (settings.weight[$('itemWeight').value] ?? null) });
     const stops = window.TH_ORDER.routeLocations().filter(p => !['from', 'to'].includes(p.address.name));
     if (stops.length) rows.push({ name: '경유지 추가요금 (' + stops.length + '곳)', amount: stops.length * settings.extraLocation });
     const now = new Date();
@@ -376,7 +376,7 @@
       ...(scheduled('to') ? [`도착 희망 시간: ${value('toDate')} ${value('toTime')}`] : []),
       `도착지 성명: ${value('receiver')} / ${value('receiverPhone')}`,
       `물품${window.TH_PORTAL?.profile ? ' (등록)' : ' 종류·수량'}: ${value('item')}`,
-      `${window.TH_PORTAL?.profile ? '크기 추가금 없음' : '크기: '+value('itemSize')} / 무게: ${value('itemWeight')}`,
+      ...(window.TH_PORTAL?.profile ? [] : [`크기: ${value('itemSize')} / 무게: ${value('itemWeight')}`]),
       `배송: ${value('trip') === 'round' ? '왕복' : '편도'}`];
     for (const kind of extraKinds) for (const location of extrasOf(kind)) {
       lines.push(`${location.label}: ${location.businessName?'['+location.businessName+'] ':''}${location.address.value} ${location.detail.value} / 성명: ${location.person.value} / 연락처: ${location.phone.value}`);
