@@ -126,6 +126,7 @@
       card.dataset.orderId=r.id;
       head.append(text('h3', (r.payload?.requester?.name||r.payload?.company||'고객')+' · 주문 ' + orderNumber(r)), text('span', r.status==='held'&&r.held_from==='pending'?'영업자 승인 전 보류':labels[r.status], 'tag')); card.append(head);
       const who = r.payload?.requester;
+      if(r.payload?.memberGoods)card.append(text('p','취급 물품: '+(r.payload.memberGoods.description || '미등록 · 의뢰자 물품 확인 필요'),'portal-note'));
       const extra=text('details','','order-extra');extra.append(text('summary','상세 보기 · 연락처 / 주문 내용'));
       extra.append(text('p', (r.payload?.company ? r.payload.company + ' · ' : '비로그인 고객 · ') + (who ? who.name + ' / ' + who.phone : '이전 주문')));
       extra.append(text('p', koreaTime(r.created_at) + ' 접수', 'portal-note'));
@@ -229,13 +230,14 @@
     const root = $('clientList'); root.replaceChildren(); const q = $('clientSearch').value.toLowerCase();
     for (const c of clients.filter(c => c.company.toLowerCase().includes(q))) {
       const card = text('article', '', 'client-card'); card.append(text('h3', c.company), text('p', (c.address + ' ' + c.detail).trim() || '등록 주소 없음'), text('p', (c.active ? '활성화' : '비활성화') + ' · 담당: ' + (staffRows.find(s => s.user_id === c.staff_id)?.name || '담당 영업자'), 'portal-note'));
+      card.append(text('p', '취급 물품: '+(c.goods_description || '미등록'), 'portal-note'));
       card.append(button(clientManager() ? '의뢰자 · 계정 · 거래처 관리' : '등록 정보 · 거래처 확인', () => editClient(c))); root.append(card);
     }
     if (!root.children.length) root.append(text('p', '등록된 의뢰자가 없습니다.'));
   }
   $('clientSearch').oninput = renderClients;
   async function editClient(c) {
-    currentClient = c || null; $('clientId').value = c?.id || ''; $('clientCompany').value = c?.company || '';
+    currentClient = c || null; $('clientId').value = c?.id || ''; $('clientCompany').value = c?.company || ''; $('clientGoods').value = c?.goods_description || '';
     $('clientAddress').value = c?.address || ''; $('clientAddress').dataset.meta = JSON.stringify(c?.address_meta || {});
     $('clientDetail').value = c?.detail || ''; $('clientStaff').value = c?.staff_id || staffRows.find(s => s.role==='sales')?.user_id || staff.user_id; $('clientActive').checked = c?.active ?? true;
     $('clientDialogTitle').textContent = c ? c.company : '의뢰자 등록'; $('clientNotice').textContent = '';
@@ -251,7 +253,7 @@
   $('clientForm').onsubmit = async e => {
     e.preventDefault(); $('clientSave').disabled = true;
     try {
-      const data = { company: $('clientCompany').value.trim(), address: $('clientAddress').value, detail: $('clientDetail').value.trim(), staff_id: $('clientStaff').value, active: $('clientActive').checked, address_meta: JSON.parse($('clientAddress').dataset.meta || '{}') };
+      const data = { company: $('clientCompany').value.trim(), goods_description: $('clientGoods').value.trim(), address: $('clientAddress').value, detail: $('clientDetail').value.trim(), staff_id: $('clientStaff').value, active: $('clientActive').checked, address_meta: JSON.parse($('clientAddress').dataset.meta || '{}') };
       const id = $('clientId').value;
       const saved = await api.api('/rest/v1/th6_clients' + (id ? '?id=eq.' + id : ''), { method: id ? 'PATCH' : 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(data) });
       if (saved?.length !== 1) throw Error('저장 결과를 확인하지 못했습니다.');
