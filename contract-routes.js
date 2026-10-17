@@ -11,10 +11,9 @@
  }
  function splitLabels(){return pairs[$('splitPair')?.value]||pairs['from-to'];}
  function data(){const r=match();return r?{id:r.id,fare:r.fare,payment:r.payment}:null;}
- function decorate(r,ui){const {card,extra,adjustment,enabled,fields,price,reason,consent}=ui;const stops=Math.max(0,(r.payload?.locations?.length||0)-2);let manual=null;
+ function decorate(r,ui){const {card,extra,adjustment,enabled,fields,price,reason,consent}=ui;const stops=Math.max(0,(r.payload?.locations?.length||0)-2);
   if(stops){
-   const panel=document.createElement('div');panel.className='contract-warning';const heading=document.createElement('strong');heading.textContent='경유 '+stops+'개 · 운행요금 확정 필요';panel.append(heading);
-   manual=document.createElement('input');manual.type='checkbox';const check=document.createElement('label');check.className='inline';check.append(manual,document.createTextNode('경유 경로와 최종 요금을 확인했습니다.'));panel.append(check);card.insertBefore(panel,adjustment);enabled.checked=true;enabled.disabled=true;enabled.closest('label').hidden=true;fields.hidden=fields.disabled=false;
+   enabled.checked=true;enabled.disabled=true;enabled.closest('label').hidden=true;fields.hidden=fields.disabled=false;
 
   }
   let save=null,savePrice=null,fixed=null,method=null,pair=null,ratio=null;
@@ -27,7 +26,7 @@
    method=select('결제 방법',[['신용','신용 · 의뢰자 결제'],['선불','선불 · 출발지 결제'],['착불','착불 · 도착지 결제'],['split','요금 나눠내기']]);pair=select('분담 방식',Object.entries(pairs).map(([k,v])=>[k,v.join(' ↔ ')]));ratio=select('분담 비율',Array.from({length:9},(_,i)=>[String((i+1)*10),String((i+1)*10)+'% / '+String(90-i*10)+'%']));ratio.value='50';const update=()=>{pair.parentElement.hidden=ratio.parentElement.hidden=method.value!=='split';};method.onchange=update;update();
    const hint=document.createElement('p');hint.className='portal-note';hint.textContent='같은'+' 의뢰자의 양방향 직행 구간에만 저장됩니다. 야간·급송·왕복 등 추가금은 별도로 계산합니다.';details.append(hint);card.append(details);
   }
-  return {args(){if(stops&&(!manual.checked||!price.value||!consent.checked))throw Error('경유지 최종 요금과 고객 확인을 완료해 주세요.');if(save?.checked&&(!savePrice.reportValidity()||Number(savePrice.value)<1000))throw Error('저장할 편도 약정요금을 입력해 주세요.');return {p_save_fare:save?.checked?Number(savePrice.value):null,p_payment:save?.checked&&fixed.checked?{method:method.value,...(method.value==='split'?{pair:pair.value,ratio:Number(ratio.value)}:{})}:null,p_stop_mode:stops?'manual':null};}};
+  return {args(){if(stops&&(!price.value||!consent.checked))throw Error('경유지 최종 요금과 고객 확인을 완료해 주세요.');if(save?.checked&&(!savePrice.reportValidity()||Number(savePrice.value)<1000))throw Error('저장할 편도 약정요금을 입력해 주세요.');return {p_save_fare:save?.checked?Number(savePrice.value):null,p_payment:save?.checked&&fixed.checked?{method:method.value,...(method.value==='split'?{pair:pair.value,ratio:Number(ratio.value)}:{})}:null,p_stop_mode:stops?'manual':null};}};
  }
  async function clientRules(id,root){root.replaceChildren();if(!id)return;const list=await window.TH_API.rpc('th6_contract_list',{p_client:id});for(const r of list){const row=document.createElement('div');row.className='contract-rule';const text=document.createElement('p');text.textContent=r.label_a+' ↔ '+r.label_b+' · '+r.fare.toLocaleString('ko-KR')+'원 · '+label(r.payment);const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent='저장 해제';b.onclick=async()=>{b.disabled=true;try{await window.TH_API.rpc('th6_contract_disable',{p_id:r.id});await clientRules(id,root);}catch(e){window.alert(e.message);b.disabled=false;}};row.append(text,b);root.append(row);}if(!list.length)root.textContent='저장된 구간 요금이 없습니다. 주문 승인 시 저장할 수 있습니다.';}
  window.TH_CONTRACT={load,match,data,sync,label,splitLabels,decorate,clientRules};
