@@ -40,8 +40,8 @@
     loadingSettings = (async () => {
       const settings = await api.rpc('th6_public_settings');
       if (typeof settings?.nightEnabled !== 'boolean') throw Error('요금 설정을 불러오지 못했습니다.');
-      const changed = window.TH_PORTAL.nightEnabled !== settings.nightEnabled || window.TH_PORTAL.nightRate !== settings.nightRate;
-      window.TH_PORTAL.nightEnabled = settings.nightEnabled; window.TH_PORTAL.nightRate = settings.nightRate; settingsReady = true;
+      const changed = window.TH_PORTAL.nightEnabled !== settings.nightEnabled || window.TH_PORTAL.nightRate !== settings.nightRate || window.TH_PORTAL.rainEnabled !== Boolean(settings.rainEnabled);
+      window.TH_PORTAL.nightEnabled = settings.nightEnabled; window.TH_PORTAL.nightRate = settings.nightRate; window.TH_PORTAL.rainEnabled=Boolean(settings.rainEnabled); settingsReady = true;
       for (const control of document.querySelectorAll('[data-choice="serviceType"]')) {
         if (control.value === '일반 배송') continue;
         if(window.TH_DIRECT_MODE){control.disabled=true;const opt=[...$('compactService').options].find(x=>x.value===control.value);if(opt)opt.disabled=true;continue;}
@@ -50,7 +50,7 @@
         if (note) note.textContent = control.disabled ? '서비스 준비중' : '';
         const option=[...$('compactService').options].find(o=>o.value===control.value);if(option){option.disabled=control.disabled;option.textContent=control.value+(control.disabled?' · 준비 중':'');}
       }
-      if (changed) { form.dispatchEvent(new Event('change', { bubbles: true })); if (!$('review').hidden) window.TH_FARE.renderReview(window.TH_MAP.getDistance()); }
+      if (changed && $('sms').textContent!=='접수 완료') { form.dispatchEvent(new Event('change', { bubbles: true })); if (!$('review').hidden) window.TH_FARE.renderReview(window.TH_MAP.getDistance()); }
       return settings;
     })();
     try { return await loadingSettings; } finally { loadingSettings = null; }
@@ -426,7 +426,7 @@
   function payload(targetForm = form) {
     const values = Object.fromEntries(new FormData(targetForm).entries());
     if(targetForm===form){for(const id of ['paymentMethod','splitPair','splitRatio'])values[id]=$(id).value;values.splitPayment=$('splitPayment').checked?'on':'';}
-    return { contract:targetForm===form?window.TH_CONTRACT.data():null,service: values.serviceType || '일반 배송', fields: values, nightEnabled: window.TH_PORTAL.nightEnabled, nightRate: window.TH_PORTAL.nightRate,
+    return { contract:targetForm===form?window.TH_CONTRACT.data():null,service: values.serviceType || '일반 배송', fields: values, nightEnabled: window.TH_PORTAL.nightEnabled, nightRate: window.TH_PORTAL.nightRate, rainEnabled: window.TH_PORTAL.rainEnabled, rainRate: window.TH_PORTAL.rainEnabled?0.2:0,
       quote: targetForm === form ? window.TH_FARE.quote(window.TH_MAP.getDistance()) : null,
       locations: targetForm === form ? window.TH_ORDER.routeLocations().map(p => ({ label: p.label, businessName: p.businessName||'', address: p.address.value, detail: p.detail.value, person: p.person.value, phone: p.phone.value })) : [] };
   }
@@ -435,9 +435,10 @@
     button.disabled = edit.disabled = true;
     try {
       const previousContract=JSON.stringify(window.TH_CONTRACT.data());if(profile&&targetForm===form){await window.TH_CONTRACT.load(profile.clientId);if(previousContract!==JSON.stringify(window.TH_CONTRACT.data())){orderAttempt=null;window.TH_FARE.renderReview(window.TH_MAP.getDistance());throw Error('구간 약정요금이 변경되었습니다. 요금과 결제를 다시 확인해 주세요.');}}
-      const previousNight = window.TH_PORTAL.nightRate; await refreshSettings();
+      const previousRain=window.TH_PORTAL.rainEnabled;const previousNight = window.TH_PORTAL.nightRate; await refreshSettings();
       requireMember();
-      if (targetForm === form && previousNight !== window.TH_PORTAL.nightRate) throw Error('야간요금 적용 시간이 바뀌었습니다. 최종 요금을 다시 확인하고 접수해 주세요.');
+      if (targetForm === form && !orderAttempt && previousNight !== window.TH_PORTAL.nightRate) throw Error('야간요금 적용 시간이 바뀌었습니다. 최종 요금을 다시 확인하고 접수해 주세요.');
+      if(targetForm===form&&!orderAttempt&&previousRain!==window.TH_PORTAL.rainEnabled){throw Error('우천 할증 설정이 변경되었습니다. 최종 요금을 다시 확인하고 접수해 주세요.');}
       const t = orderAttempt?.context || await ensureThread(true);
       if (!orderAttempt) orderAttempt = { id: crypto.randomUUID(), thread: t.id, context: { ...t }, summary: summaryText, payload: payload(targetForm) };
       message.textContent = '주문을 접수하고 있습니다…';
@@ -446,7 +447,7 @@
       message.textContent = '주문 요청이 접수되었습니다. 주문번호: ' + orderNumber(result) + ' · 이용 문의사항에서 답변과 배정 알림을 확인해 주세요.';
       button.textContent = '접수 완료'; targetDoc.getElementById('newOrder').hidden = false;
     } catch (e) {
-      if(e.message.includes('야간요금 적용 시간이 변경되었습니다.')){orderAttempt=null;await refreshSettings().catch(()=>{});}
+      if(e.message.includes('야간요금 적용 시간이 변경되었습니다.')||e.message.includes('우천 할증 설정이 변경되었습니다.')){orderAttempt=null;await refreshSettings().catch(()=>{});}
       message.textContent = e.message;
       button.disabled = false;
       // 전송 결과가 불확실한 경우 같은 주문번호로 재시도하도록 내용 수정은 잠근다.
@@ -478,7 +479,7 @@
     doc.getElementById('sms').onclick = () => submit(doc.getElementById('order'), doc.getElementById('summary').textContent, doc);
     doc.querySelectorAll('a[href*="open.kakao.com"]').forEach(a => { a.textContent = '💬 이용 문의사항 💬'; a.removeAttribute('target'); a.href = '#'; a.onclick = e => { e.preventDefault(); openChat(); }; });
   });
-  window.TH_PORTAL = { nightEnabled: false, nightRate: 0, get profile() { return profile; }, refreshSettings };
+  window.TH_PORTAL = { nightEnabled: false, nightRate: 0, rainEnabled: false, get profile() { return profile; }, refreshSettings };
   async function tick() {
     if (window.TH_DIRECT_MODE || document.hidden || polling || !mode) return; polling = true;
     try {

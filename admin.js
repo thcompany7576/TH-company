@@ -369,9 +369,11 @@
   };
   async function loadSettings() {
     const settings = await api.rpc('th6_public_settings'); $('nightStatus').textContent = settings.nightEnabled?'현재 야간요금 적용 중 ('+Math.round(settings.nightRate*100)+'% 추가)' :'현재 주간요금 적용 중';
+    $('rainEnabled').checked=Boolean(settings.rainEnabled);$('rainStatus').textContent=settings.rainEnabled?'우천 할증 적용 중 · 20% 추가':'우천 할증 꺼짐';
     document.querySelectorAll('[data-service]').forEach(c => c.checked = Boolean(settings.services?.[c.dataset.service]));
   }
 
+  $('rainEnabled').onchange=async()=>{const c=$('rainEnabled');c.disabled=true;try{await api.rpc('th6_set_rain',{p_enabled:c.checked});await loadSettings();notice('우천 할증 설정을 저장했습니다.');}catch(e){c.checked=!c.checked;notice(e.message);}finally{c.disabled=false;}};
   document.querySelectorAll('[data-service]').forEach(c => c.onchange=async()=> {
     c.disabled=true; try { await api.rpc('th6_set_service',{p_service:c.dataset.service,p_enabled:c.checked}); notice('서비스 설정을 저장했습니다.'); }
     catch(e) { c.checked=!c.checked;notice(e.message); } finally { c.disabled=false; }

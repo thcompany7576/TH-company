@@ -44,7 +44,7 @@
     if (local === null) return { amount: null };
     const km = Math.round((distance.baseMeters ?? distance.outboundMeters) / 1000);
     const outsideBase = Math.max(0, 7000 - Math.max(0, km - 5) * (7000 / 15));
-    const oneWay = local ? 8000 + Math.max(0, km - 5) * 1000 : Math.max(12000, outsideBase + km * 1000);
+    const oneWay = Math.ceil((local ? 8000 + Math.max(0, km - 5) * 1000 : Math.max(12000, outsideBase + km * 1000))/1000)*1000;
     const roundExtra = distance.roundTrip ? Math.min(oneWay,10000) + Math.max(0,oneWay-10000)*0.7 : 0;
     return { amount: oneWay + roundExtra, oneWay, roundExtra };
   }
@@ -52,7 +52,9 @@
     const fare = base(distance);
     const contract=window.TH_CONTRACT?.match();
     if(contract){fare.oneWay=contract.fare;fare.roundExtra=distance?.roundTrip?Math.min(contract.fare,10000)+Math.max(0,contract.fare-10000)*0.7:0;fare.amount=fare.oneWay+fare.roundExtra;}
+    const surchargeBase=fare.oneWay==null?null:Math.ceil(fare.oneWay/1000)*1000;
     const rows = [{ name: contract?'약정 편도요금':'편도 거리 기준 요금', amount: fare.oneWay ?? null }];
+    if(window.TH_PORTAL?.rainEnabled)rows.push({name:'우천 추가요금 (20%)',amount:surchargeBase===null?null:surchargeBase*0.2});
     if(distance?.roundTrip)rows.push({name:'왕복 배송 추가요금',amount:fare.roundExtra??null});
     rows.push({ name: '물품 크기 (' + $('itemSize').value + ')', amount: window.TH_PORTAL?.profile ? 0 : (settings.size[$('itemSize').value] ?? null) });
     rows.push({ name: '물품 무게 (' + $('itemWeight').value + ')', amount: window.TH_PORTAL?.profile ? 0 : (settings.weight[$('itemWeight').value] ?? null) });
@@ -66,12 +68,12 @@
     let subtotal = rows.every(r => typeof r.amount === 'number' && Number.isFinite(r.amount) && r.amount >= 0)
       ? rows.reduce((sum, row) => sum + row.amount, 0) : null;
     if (window.TH_PORTAL?.nightEnabled) {
-      const nightAmount = subtotal === null ? null : subtotal * window.TH_PORTAL.nightRate;
+      const nightAmount = surchargeBase === null ? null : surchargeBase * window.TH_PORTAL.nightRate;
       rows.push({ name: '야간 접수 추가요금', amount: nightAmount });
       if (subtotal !== null) subtotal += nightAmount;
     }
     if ($('urgent').value === 'yes') {
-      const urgentAmount = subtotal === null ? null : subtotal * settings.urgent;
+      const urgentAmount = surchargeBase === null ? null : surchargeBase * settings.urgent;
       rows.push({ name: '급송 요청 추가요금', amount: urgentAmount });
       if (subtotal !== null) subtotal += urgentAmount;
     }
