@@ -150,23 +150,20 @@
       const autoFare=r.payload?.quote?.total;
       if(Number.isFinite(autoFare))extra.append(text('p','접수 시 예상 운행요금: '+autoFare.toLocaleString('ko-KR')+'원','portal-note'));
       const displayFare=r.agreed_fare??autoFare;
-      if(Number.isFinite(displayFare))card.append(text('h3','운행요금 '+displayFare.toLocaleString('ko-KR')+'원'+(r.agreed_fare!=null&&!r.fare_checked_at?' · 관제 확인 필요':''),'order-fare'));
+      if(Number.isFinite(displayFare))card.append(text('h3','운행요금 '+displayFare.toLocaleString('ko-KR')+'원','order-fare'));
       if(r.fare_reason)extra.append(text('p','조정 사유: '+r.fare_reason));
       if(!owner()&&r.staff_id===staff.user_id&&Number.isFinite(displayFare))extra.append(text('p',(r.agreed_fare!=null&&r.fare_checked_at||r.status==='assigned'||r.status==='completed'?'내 수익':'내 예상 수익')+': '+Math.round(displayFare*0.04).toLocaleString('ko-KR')+'원 (영업자 4% · 별도 보증금 제외)','portal-note'));
       const actions = text('div', '', 'actions');
       const secondaryActions=text('div','','actions');
       secondaryActions.append(button('코리아센터 입력용 내용 복사', async () => { try { await navigator.clipboard.writeText(officeOrderText(r)); notice('복사했습니다. 코리아센터에 직접 입력해 주세요.'); } catch { notice('복사하지 못했습니다. 전체 주문 내용을 선택해서 복사해 주세요.'); } }));
-      if(owner()&&r.status==='approved'&&r.agreed_fare!=null&&!r.fare_checked_at){
-        const check=button('조정 요금 확인 · 배정 승인',async()=>{if(!confirm('운행요금 '+r.agreed_fare.toLocaleString('ko-KR')+'원을 확인했나요? 확인 후 기사 배정이 가능합니다.'))return;check.disabled=true;try{await api.rpc('th6_confirm_fare',{p_id:r.id,p_fare:r.agreed_fare});await loadOrders(true);notice('조정 요금을 확인했습니다. 기사 배정을 진행해 주세요.');}catch(e){notice(e.message);check.disabled=false;}},'');actions.append(check);
-      }
       if (r.thread_id && !owner()) actions.append(button('고객 문의 / 답변', async () => { await selectPage('chat'); await openThread(r.thread_id); }));
       for (const next of owner() ? (r.status==='approved'?['assigned','held']:r.status==='assigned'?['completed','held']:r.status==='held'?['restore','cancelled']:r.status==='cancelled'?['restore']:[]) : (r.status==='pending'?['held']:r.status==='held'? (r.held_from==='pending'?['restore','cancelled']:['cancelled']):r.status==='cancelled'&&r.held_from==='pending'?['restore']:[])) {
         const b = button(next === 'restore' ? '다시 진행' : next === 'assigned' ? '기사 배정 완료' : labels[next], async () => {
-          const question = next === 'assigned' ? '코리아센터에서 기사 배정을 확인했나요? 고객 문의함으로 배정 알림을 보냅니다.' : next === 'restore' ? (r.held_from==='pending'?'주문을 영업자 확인 중으로 되돌릴까요? 영업자 승인 후 관제로 전달됩니다.':'주문을 관제 배정 대기로 되돌릴까요? 기사 배정을 다시 확인해야 합니다.') : next === 'cancelled' ? '이 주문을 취소 목록으로 옮길까요? 취소 후 12시간 동안만 복구할 수 있으며, 이후 내역과 연결 대화가 자동 삭제됩니다.' : next === 'held' ? '이 주문을 보류할까요? 보류 후 48시간 내에 복구하지 않으면 자동 취소·삭제됩니다.' : '이 주문을 완료 처리할까요?';
+          const question = next === 'assigned' ? '운행요금 '+(Number.isFinite(displayFare)?displayFare.toLocaleString('ko-KR')+'원':'확인 중')+' · 코리아센터에서 기사 배정을 확인했나요? 배정 완료로 처리하고 고객에게 알립니다.' : next === 'restore' ? (r.held_from==='pending'?'주문을 영업자 확인 중으로 되돌릴까요? 영업자 승인 후 관제로 전달됩니다.':'주문을 관제 배정 대기로 되돌릴까요? 기사 배정을 다시 확인해야 합니다.') : next === 'cancelled' ? '이 주문을 취소 목록으로 옮길까요? 취소 후 12시간 동안만 복구할 수 있으며, 이후 내역과 연결 대화가 자동 삭제됩니다.' : next === 'held' ? '이 주문을 보류할까요? 보류 후 48시간 내에 복구하지 않으면 자동 취소·삭제됩니다.' : '이 주문을 완료 처리할까요?';
           if (!confirm(question)) return; b.disabled = true;
-          try { await api.rpc('th6_set_status', { p_id: r.id, p_status: next }); await loadOrders(true); notice('주문을 ' + (next==='restore'?'다시 진행':labels[next]) + ' 처리했습니다.'); }
+          try { await api.rpc(next==='assigned'?'th6_assign_order':'th6_set_status',next==='assigned'?{p_id:r.id,p_fare:Number.isFinite(displayFare)?displayFare:null}:{p_id:r.id,p_status:next}); await loadOrders(true); notice('주문을 ' + (next==='restore'?'다시 진행':labels[next]) + ' 처리했습니다.'); }
           catch (e) { notice(e.message); b.disabled = false; }
-        }, next === 'held' ? 'secondary' : next === 'assigned' ? '' : 'secondary'); if(next==='assigned'&&r.agreed_fare!=null&&!r.fare_checked_at){b.disabled=true;b.title='조정 요금을 먼저 확인해 주세요.';} (next==='held'?secondaryActions:actions).append(b);
+        }, next === 'held' ? 'secondary' : next === 'assigned' ? '' : 'secondary'); (next==='held'?secondaryActions:actions).append(b);
       }
       if(r.status==='approved'&&!owner()){
         const edit=text('details','','fare-adjustment');edit.append(text('summary','고객 합의 · 요금 인상'));
