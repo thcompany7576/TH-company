@@ -22,6 +22,19 @@
     $('salesRoute').textContent=profile.sales?profile.sales.name+' 담당 접수 · 주문과 문의가 담당자에게 전달됩니다.':'담당 영업자 확인이 필요합니다. 사무실에 문의해 주세요.';
   }
   const text = (tag, value, className) => { const el = document.createElement(tag); el.textContent = value; if (className) el.className = className; return el; };
+  const increaseAttempts=new Map();let increaseBusy=false;
+  const increasePanel=document.createElement('div');increasePanel.id='fareIncreasePanel';increasePanel.hidden=true;
+  const increaseButton=text('button','요금 인상 요청','secondary');increaseButton.type='button';increaseButton.id='fareIncreaseRequest';
+  const increaseNote=text('p','배차가 늦어지면 추가요금 부담 의사를 전달할 수 있습니다. 실제 요금은 담당자와 확인한 뒤 조정됩니다.','portal-note');increaseNote.id='fareIncreaseNote';increasePanel.append(increaseButton,increaseNote);$('chatForm').before(increasePanel);
+  function increaseState(data){const requested=(data.messages||[]).some(m=>m.sender==='customer'&&String(m.body).includes('[요금 인상 요청]'));increasePanel.hidden=!data.orderId||data.status!=='approved';increaseButton.disabled=increaseBusy||requested;increaseButton.textContent=requested?'요금 인상 요청 완료':'요금 인상 요청';increaseNote.textContent=requested?'담당자에게 요청을 전달했습니다. 실제 요금은 안내받은 금액을 확인한 뒤 결정됩니다.':'배차가 늦어지면 추가요금 부담 의사를 전달할 수 있습니다. 실제 요금은 담당자와 확인한 뒤 조정됩니다.';}
+  increaseButton.onclick=async()=>{
+    if(!thread||increaseBusy||!confirm('배차를 위해 추가요금을 부담할 의향이 있다는 요청을 보낼까요? 이 버튼으로 요금이 자동 변경되지는 않습니다.'))return;
+    const t={...thread};increaseBusy=true;increaseButton.disabled=true;$('chatError').textContent='';
+    try{requireMember();if(!increaseAttempts.has(t.id))increaseAttempts.set(t.id,crypto.randomUUID());await api.rpc('th6_request_fare_increase',{p_thread:t.id,p_token:t.token,p_message:increaseAttempts.get(t.id)});if(thread?.id===t.id)await readChat();await refreshInbox();}
+    catch(e){if(thread?.id===t.id)$('chatError').textContent=e.message;}
+    finally{increaseBusy=false;if(thread?.id===t.id)await readChat().catch(()=>{});}
+  };
+
   function savedThreads() {
     if(window.TH_DIRECT_MODE)return [];
     try { return JSON.parse(localStorage.getItem(memoryKey) || '[]').filter(t => t?.id && /^[a-f0-9]{64}$/.test(t.token)); } catch { return []; }
@@ -171,6 +184,7 @@
     if (!log.children.length) log.append(text('p', '문의사항을 남겨 주세요. 사무실에서 확인 후 답변합니다.', 'muted'));
     if (atBottom) log.scrollTop = log.scrollHeight;
     $('chatStatus').textContent = data.orderId ? '주문 ' + orderNumber(data) + ' · ' + ({ pending: '영업자 확인 중', approved: '관제 배정 대기', assigned: '기사 배정 완료', completed: '완료', held: '보류', cancelled: '취소' }[data.status] || '문의') : '사무실 문의';
+    increaseState(data);
     $('chatForm').hidden=data.status==='completed';
     if(data.status==='completed')log.append(text('p','완료된 주문의 대화는 정리되었습니다. 추가 문의는 일반 이용문의를 이용해 주세요.'));
     unread = 0; $('chatUnread').hidden = true;
@@ -240,7 +254,7 @@
   async function openConversation(t) {
     requireMember();
     if(t)chooseThread(t);else thread=null;
-    $('chatError').textContent='';$('chatBody').value=chatDrafts.get(thread?.id||'new')||'';pendingMessage=null;
+    increasePanel.hidden=true;$('chatError').textContent='';$('chatBody').value=chatDrafts.get(thread?.id||'new')||'';pendingMessage=null;
     $('customerChatTitle').textContent=t?.orderId?'주문 '+orderNumber(t)+' · 대화':'이용 문의사항';
     $('chatForm').hidden=Boolean(t?.closed);$('chatIdentity').hidden=Boolean(profile)||Boolean(thread);
     if(!profile){const who=person(true);$('chatGuestName').value=thread?.name||who.name;$('chatGuestPhone').value=thread?.phone||who.phone;}

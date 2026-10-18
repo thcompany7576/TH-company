@@ -168,6 +168,12 @@
           catch (e) { notice(e.message); b.disabled = false; }
         }, next === 'held' ? 'secondary' : next === 'assigned' ? '' : 'secondary'); if(next==='assigned'&&r.agreed_fare!=null&&!r.fare_checked_at){b.disabled=true;b.title='조정 요금을 먼저 확인해 주세요.';} (next==='held'?secondaryActions:actions).append(b);
       }
+      if(r.status==='approved'&&!owner()){
+        const edit=text('details','','fare-adjustment');edit.append(text('summary','고객 합의 · 요금 인상'));
+        const amount=document.createElement('input');amount.type='number';amount.min=String((displayFare||0)+1);amount.max='2000000';amount.step='1';amount.required=true;amount.placeholder='고객과 합의한 최종 운행요금';amount.setAttribute('aria-label','인상 후 최종 운행요금');
+        const confirmed=document.createElement('input');confirmed.type='checkbox';const label=text('label','','inline');label.append(confirmed,text('span','고객과 인상 금액을 확인했습니다.'));
+        const save=button('인상 금액 전달',async()=>{if(!amount.reportValidity()||!confirmed.checked){notice('인상 금액과 고객 확인을 완료해 주세요.');return;}if(!confirm('고객과 합의한 운행요금 '+Number(amount.value).toLocaleString('ko-KR')+'원을 관제에 전달할까요?'))return;save.disabled=true;try{await api.rpc('th6_raise_waiting_fare',{p_id:r.id,p_fare:Number(amount.value),p_customer_confirmed:true,p_reason:'고객 합의'});await loadOrders(true);notice('인상 금액을 전달했습니다. 관제 확인 후 배정합니다.');}catch(e){notice(e.message);save.disabled=false;}},'');edit.append(amount,label,save);card.append(edit);
+      }
       if(r.approved_at)extra.append(text('p','영업자 승인: '+koreaTime(r.approved_at),'portal-note'));
       if(r.sales_notes)card.append(text('p','특이사항 · '+r.sales_notes,'order-note'));
       if(r.status==='pending'&&!owner()){
