@@ -97,6 +97,7 @@
   }
   function memberGoods() {
     const item=form.elements.namedItem('item'),size=form.elements.itemSize,weight=form.elements.itemWeight;
+    item.closest('section').hidden=Boolean(profile);
     for(const control of [item,size,weight]){control.closest('label').hidden=Boolean(profile);control.required=!profile;}
     let note=$('memberGoodsNote');
     if(!note){note=text('p','','portal-note');note.id='memberGoodsNote';item.closest('label').before(note);}
