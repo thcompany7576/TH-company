@@ -8,7 +8,7 @@
  const minutes=(d,urgent)=>{const meters=d?.baseMeters??d?.outboundMeters;if(!Number.isFinite(meters)||meters<0)return null;return Math.max(60,Math.round(meters/1000)*(urgent?4:6));};
  const format=n=>n>=60?Math.floor(n/60)+'시간'+(n%60?' '+n%60+'분':''):n+'분';
  function current(){return minutes(window.TH_MAP?.getDistance(),document.getElementById('urgent').value==='yes');}
- function render(){const n=current();time.hidden=note.hidden=n===null;time.textContent=n===null?'':'배송 목표시간: '+format(n)+' 이내';}
+ function render(){const n=current();time.hidden=note.hidden=n===null;time.textContent=n===null?'':'배송 목표시간: '+format(n)+' 이내';window.TH_MAP_FARE?.render();}
  form.addEventListener('change',render);document.getElementById('urgentToggle').addEventListener('change',render);
  form.addEventListener('th:review',()=>{const n=current();if(n!==null)document.getElementById('summary').textContent+='\n배송 목표시간: '+format(n)+' 이내 (출발지→경유지→도착지 거리 기준)';});
  window.TH_ROUTE_TIME={minutes,format,render};render();
