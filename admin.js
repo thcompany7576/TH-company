@@ -40,6 +40,7 @@
     await window.TH_PUSH.init(staff);
     $('adminTitle').textContent = 'TH company-' + (owner() ? '관제' : staff.name);
     $('ownCardNotice').textContent='';showOwnCard();$('directOrderOpen').hidden=staff.role!=='sales';
+    document.querySelector('[data-page=daily]').hidden=!(representative()||staff.role==='sales');
     status = owner() ? 'approved' : 'pending';
     document.querySelector('[data-page=chat]').hidden = false;document.querySelector('[data-page=chat]').firstChild.textContent=owner()?'고객 문의 모니터링 ':'문의함 ';$('page-chat').querySelector('h2').textContent=owner()?'고객 문의 모니터링':'문의함';$('replyForm').hidden=owner();$('page-chat').querySelector('.portal-note').textContent=owner()?'영업자별 고객 대화를 읽기 전용으로 확인합니다. 답변은 담당 영업자가 보냅니다.':'영업자 링크로 들어온 고객의 주문·문의가 담당 영업자에게 연결됩니다.';
     document.querySelectorAll('[data-status]').forEach(b=>{b.hidden=owner()&&b.dataset.status==='pending';b.className=b.dataset.status===status?'':'secondary';b.setAttribute('aria-pressed',String(b.dataset.status===status));});
@@ -79,26 +80,50 @@
       window.TH_DISPATCH.reset(); window.TH_PUSH.reset(); staff = null; showOwnCard(); $('dashboard').hidden = true; $('login').hidden = false; $('logout').hidden = true;
       $('adminTitle').textContent = 'TH company';
       for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
+      dailyGeneration++;$('dailyRows').replaceChildren();$('dailyTotal').textContent='';$('dailyNote').textContent='';
       $('orders').replaceChildren(); $('clientList').replaceChildren(); $('adminChatLog').replaceChildren(); $('threadList').replaceChildren();
     currentThread=null;replyDrafts.clear();$('replyBody').value='';$('adminChatLog').replaceChildren();
     }
   });
   async function selectPage(value) {
+    if(value==='daily'&&!(representative()||staff?.role==='sales'))return;
     if(value==='fares'&&staff?.role!=='sales')return;
     if(value!==page&&$('inquiryDialog').open)$('inquiryDialog').close();
     page = value;
     for (const b of document.querySelectorAll('[data-page]')) { const selected = b.dataset.page === page; if (selected) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
-    for (const value of ['orders', 'clients', 'chat', 'dispatch', 'settings', 'staff', 'fares']) $('page-' + value).hidden = value !== page;
+    for (const value of ['orders', 'clients', 'chat', 'dispatch', 'settings', 'staff', 'fares', 'daily']) $('page-' + value).hidden = value !== page;
     try {
       await window.TH_DISPATCH.show(page === 'dispatch');
       if (page === 'orders') await loadOrders(true);
       if (page === 'clients') await loadClients();
+      if (page === 'daily') await loadDaily();
       if (page === 'chat') await loadThreads();
       if (page === 'settings' && owner()) await loadSettings();
       if (page === 'staff' && representative()) await loadStaff();
     } catch (e) { notice(e.message); }
   }
   document.querySelectorAll('[data-page]').forEach(b => b.onclick = () => selectPage(b.dataset.page));
+  let dailyGeneration=0;
+  const dayKst=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  function dailyOptions(){
+    const select=$('dailyDay'),previous=select.value,today=dayKst();select.replaceChildren();
+    ['오늘','어제','그제'].forEach((label,index)=>{const date=new Date(today+'T00:00:00Z');date.setUTCDate(date.getUTCDate()-index);const value=date.toISOString().slice(0,10),option=text('option',label+' · '+value);option.value=value;select.append(option);});
+    select.value=[...select.options].some(o=>o.value===previous)?previous:select.options[1].value;
+  }
+  async function loadDaily(){
+    if(!(representative()||staff?.role==='sales'))return;
+    const stamp=++dailyGeneration,user=staff.user_id;dailyOptions();$('dailyRows').replaceChildren();$('dailyTotal').textContent='';$('dailyNote').textContent='집계를 불러오는 중입니다.';$('dailyRefresh').disabled=true;
+    try{
+      const data=await api.rpc('th6_daily_sales',{p_day:$('dailyDay').value});
+      if(stamp!==dailyGeneration||staff?.user_id!==user||page!=='daily')return;
+      const totals={count:0,fare:0,income:0,missing:0};
+      for(const r of data.rows){const tr=document.createElement('tr');for(const value of [r.staff_name,Number(r.count).toLocaleString('ko-KR')+'건',Number(r.fare).toLocaleString('ko-KR')+'원',Number(r.income).toLocaleString('ko-KR')+'원'])tr.append(text('td',value));$('dailyRows').append(tr);for(const key of Object.keys(totals))totals[key]+=Number(r[key]);}
+      $('dailyTotal').textContent='합계 '+totals.count.toLocaleString('ko-KR')+'건 · 퀵비 '+totals.fare.toLocaleString('ko-KR')+'원 · 실수익 '+totals.income.toLocaleString('ko-KR')+'원';
+      $('dailyNote').textContent=totals.missing?'요금 확인이 필요한 완료 주문 '+totals.missing+'건이 있습니다. 금액 합계에서 제외되어 있으니 장부 작성 전 확인해 주세요.':(!data.rows.length?'해당 날짜에 집계된 완료 주문이 없습니다. ': '')+($('dailyDay').value===data.today?'오늘은 진행 중 집계입니다. 완료 처리에 따라 달라집니다.':'한국 시간 기준 하루 집계입니다.');
+    }catch(e){if(stamp===dailyGeneration&&staff?.user_id===user)$('dailyNote').textContent='집계를 불러오지 못했습니다. '+e.message;}
+    finally{if(stamp===dailyGeneration)$('dailyRefresh').disabled=false;}
+  }
+  $('dailyDay').onchange=loadDaily;$('dailyRefresh').onclick=loadDaily;
   async function loadOrders(reset = false) {
     const stamp = ++generation; $('refresh').disabled = $('more').disabled = true;
     if (reset) { rows = []; offset = 0; }
