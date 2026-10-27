@@ -29,7 +29,8 @@
     try{await navigator.clipboard.writeText($('ownCardLink').href);$('ownCardNotice').textContent='명함 링크를 복사했습니다.';}
     catch{$('ownCardNotice').textContent='아래 링크를 선택해서 복사해 주세요.';const selection=getSelection(),range=document.createRange();range.selectNodeContents($('ownCardLink'));selection.removeAllRanges();selection.addRange(range);}
   };
-  $('directOrderOpen').onclick=()=>{if(staff?.role!=='sales')return;$('directOrderFrame').src='order.html?direct=1';$('directOrderDialog').showModal();};
+  function openDirectOrder(){if(!staff?.active||!['sales','owner'].includes(staff.role))return;$('directOrderFrame').src='order.html?direct=1';$('directOrderDialog').showModal();}
+  $('directOrderOpen').onclick=openDirectOrder;$('controlDirectOpen').onclick=openDirectOrder;
   $('directOrderClose').onclick=()=>{if(!confirm('직접 접수 창을 닫을까요? 접수하지 않은 입력 내용은 저장되지 않습니다.'))return;$('directOrderDialog').close();$('directOrderFrame').src='about:blank';};
   $('directOrderDialog').addEventListener('cancel',e=>{e.preventDefault();$('directOrderClose').click();});
   window.addEventListener('message',async e=>{if(e.origin!==location.origin||e.source!==$('directOrderFrame').contentWindow||e.data?.type!=='th:direct-submitted')return;status=e.data.status==='approved'?'approved':'pending';document.querySelectorAll('[data-status]').forEach(b=>{b.className=b.dataset.status===status?'':'secondary';b.setAttribute('aria-pressed',String(b.dataset.status===status));});await loadOrders(true);notice('직접 주문을 접수했습니다.');});

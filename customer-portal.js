@@ -378,10 +378,11 @@
   });
   function addressMeta(input) { return Object.fromEntries(['areaCode', 'township', 'county'].map(k => [k, input.dataset[k] || ''])); }
   function renderPartners() {
-    const root = $('partnerList'); root.replaceChildren();
+    const root = $('partnerList'); root.replaceChildren();$('partnerAdd').hidden=Boolean(window.TH_DIRECT?.control);
     for (const p of partners) {
       const card = text('div', '', 'partner-card'); card.append(text('strong', p.title), text('p', p.address + ' ' + p.detail), text('p', p.person + ' · ' + p.phone));
       const actions = text('div', '', 'actions'), edit = text('button', '수정', 'secondary'), remove = text('button', '삭제', 'secondary');
+      remove.hidden=Boolean(window.TH_DIRECT?.control);
       edit.type = remove.type = 'button'; edit.onclick = () => editPartner(p);
       remove.onclick = async () => {
         if (!confirm(p.title + ' 거래처를 삭제할까요?')) return; remove.disabled = true;
@@ -415,6 +416,7 @@
       await api.api('/rest/v1/th6_partners' + (editingPartner.id ? '?id=eq.' + editingPartner.id : ''), { method: editingPartner.id ? 'PATCH' : 'POST',
         body: JSON.stringify({ ...values, client_id: profile.clientId, address_meta: JSON.parse($('partner_address').dataset.meta || '{}') }) });
       $('partnerEditor').hidden = true; await loadPartners();
+      if(window.TH_DIRECT?.control)for(const select of document.querySelectorAll('[data-partner-select]'))if(select.value===editingPartner.id)select.dispatchEvent(new Event('change'));
     } catch (e) { $('partnerError').textContent = e.message; }
     finally { $('partnerSave').disabled = false; }
   };
