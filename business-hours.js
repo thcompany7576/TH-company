@@ -42,7 +42,7 @@
   const data=await api.rpc('th6_reception_status',{p_slug:new URLSearchParams(location.search).get('sales'),p_staff:window.TH_DIRECT?.staff?.user_id||null});if(stamp===version)renderCustomer(data);return data;
  }
  async function ensure(){const data=await refresh();if(data?.closed)throw Error(data.globalClosed?globalText:individualText+' 예외 접수: 070-7576-3320 (요금 상승 가능)');}
- window.TH_HOURS={async init(account){version++;staff=account;await refresh().catch(e=>note.textContent=e.message);},refresh,ensure};
+ window.TH_HOURS={async init(account){version++;staff=account;state=null;body.replaceChildren();panel.hidden=false;await refresh().catch(e=>note.textContent=e.message);},refresh,ensure};
  if(!admin){
   // Runs before form review or submission. Server insert trigger is authoritative.
   document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!['sms','sendAgency'].includes(b.id)||!state?.closed)return;e.preventDefault();e.stopImmediatePropagation();panel.scrollIntoView({block:'center'});},true);
@@ -55,4 +55,5 @@
  setInterval(()=>{if(!document.hidden)void refresh().catch(()=>{});},10000);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refresh().catch(()=>{});});
 })();
+
 
