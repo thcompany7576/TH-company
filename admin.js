@@ -38,7 +38,7 @@
     const list = await api.api('/rest/v1/th6_staff?select=*&user_id=eq.' + api.session.user.id);
     staff = list[0]; if (!staff?.active) { await api.logout(); throw Error('관리 권한이 없거나 비활성화된 계정입니다.'); }
     window.TH_SOUNDS.init(staff.user_id);
-    await window.TH_PUSH.init(staff);
+    await window.TH_PUSH.init(staff); await window.TH_HOURS.init(staff);
     $('adminTitle').textContent = 'TH company-' + (owner() ? '관제' : staff.name);
     $('ownCardNotice').textContent='';showOwnCard();$('directOrderOpen').hidden=staff.role!=='sales';
     document.querySelector('[data-page=daily]').hidden=!(representative()||staff.role==='sales');
@@ -537,3 +537,4 @@
   setInterval(poll,10000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll();});
   (async()=>{await api.restore();if(api.session)try{await enter();}catch(e){notice(e.message);}})();
 })();
+

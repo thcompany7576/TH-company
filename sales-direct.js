@@ -57,6 +57,6 @@
  }
  return baseRpc(name,args);
  };
- window.TH_DIRECT={get control(){return control;},person:()=>profile?{name:profile.name,phone:profile.phone}:{name:$('directName').value.trim(),phone:$('directPhone').value.trim()}};
+ window.TH_DIRECT={get control(){return control;},get staff(){return staff;},person:()=>profile?{name:profile.name,phone:profile.phone}:{name:$('directName').value.trim(),phone:$('directPhone').value.trim()}};
  $('newOrder').addEventListener('click',()=>location.reload());
 })();
