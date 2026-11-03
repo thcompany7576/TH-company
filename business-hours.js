@@ -2,11 +2,11 @@
  'use strict';
  const api=window.TH_API,$=id=>document.getElementById(id),admin=document.documentElement.dataset.surface==='admin'&&!window.TH_DIRECT_MODE;
  const node=(tag,value)=>{const e=document.createElement(tag);if(value)e.textContent=value;return e;};
- const style=node('style');style.textContent='.hours-panel{padding:12px 16px;margin:12px 0;border:1px solid #998790;border-radius:12px}.hours-panel h2{font-size:18px;margin:0 0 8px}.hours-panel p{margin:6px 0}.hours-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 0}.hours-row strong{flex:1}.hours-closed{color:#a51e2d!important;font-weight:bold}.hours-panel button,.hours-panel a{padding:8px 12px;min-height:38px}.hours-panel input{padding:8px;margin:6px 0}.hours-panel [role=status]{font-size:14px}.hours-panel[hidden]{display:none!important}';document.head.append(style);
+ const style=node('style');style.textContent='.hours-panel{padding:12px 16px;margin:12px 0;border:1px solid #998790;border-radius:12px}.hours-panel h2{font-size:18px;margin:0 0 8px}.hours-panel p{margin:6px 0}.hours-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 0}.hours-row strong{flex:1}.hours-closed{color:#a51e2d!important;font-weight:bold}.hours-panel button,.hours-panel a{padding:8px 12px;min-height:38px}.hours-panel input{padding:8px;margin:6px 0}.hours-panel [role=status]{font-size:14px}.hours-panel[hidden]{display:none!important}.admin-menu-panel .hours-panel{padding:12px 0;margin:12px 0;border:0;border-top:1px solid #998790;border-bottom:1px solid #998790;border-radius:0}.admin-menu-panel .hours-panel p{color:inherit}.admin-menu-panel .hours-row strong{font-size:14px}.admin-menu-panel .hours-row button{width:auto;flex-shrink:0}.admin-menu-panel #pushPanel{border:0;padding:0;margin:0}.admin-menu-panel #pushPanel h2,.admin-menu-panel #pushPanel p{display:none}.admin-menu-panel #pushPanel:has(#pushEnable[hidden]){display:none!important}';document.head.append(style);
  let staff=null,busy=false,version=0,state=null;
  const panel=node('section');panel.className='hours-panel';panel.id='receptionPanel';panel.hidden=true;
  const heading=node('h2',admin?'업무 마감 관리':'접수 안내'),body=node('div'),note=node('p');note.setAttribute('role','status');panel.append(heading,body,note);
- if(admin)$('dashboard').before(panel);else $('order').before(panel);
+ if(admin)$('pushPanel').before(panel);else $('order').before(panel);
  const globalText='오늘 업무가 종료되어 주문을 접수할 수 없습니다.';
  const individualText='담당 영업자의 업무가 마감되어 현재 주문을 접수할 수 없습니다.';
  async function change(closed,target,name){
@@ -55,5 +55,6 @@
  setInterval(()=>{if(!document.hidden)void refresh().catch(()=>{});},10000);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refresh().catch(()=>{});});
 })();
+
 
 
