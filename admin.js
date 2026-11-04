@@ -170,6 +170,7 @@
     return [['의뢰자',p.company||p.requester?.name||'확인 필요'],['의뢰자 연락처',p.requester?.phone||''],['출발지 조회',from.businessName||'상호 미등록 · 주소 직접 입력'],['출발지 상세',place(from)],['도착지 조회',to.businessName||'상호 미등록 · 주소 직접 입력'],['도착지 상세',place(to)],['적요',notes||'없음'],['결제 선택',payment],['배송 선택',options.join(' / ')],['기본요금',Number.isFinite(fare)?String(fare):'요금 확인 필요']];
   }
   function openDispatchCopy(r) {
+    if(!owner())return;
     let dialog=$('dispatchCopyDialog');
     if(!dialog){dialog=document.createElement('dialog');dialog.id='dispatchCopyDialog';dialog.className='admin-dialog';dialog.setAttribute('aria-label','배차용 복사');document.body.append(dialog);}
     dialog.replaceChildren();const head=text('div','','section-head');head.append(text('h2','주문 '+orderNumber(r)+' · 배차용 복사'),button('닫기',()=>dialog.close()));dialog.append(head,text('p','복사 후 우리네트웍에 직접 입력하세요. 기본요금 입력 후 Enter로 확인하고, 추가 경유지·분담 주문은 배차 전후 직접 확인하세요.','portal-note'));
@@ -219,7 +220,7 @@
       if(!owner()&&r.staff_id===staff.user_id&&Number.isFinite(displayFare))extra.append(text('p',(r.agreed_fare!=null&&r.fare_checked_at||r.status==='assigned'||r.status==='completed'?'내 수익':'내 예상 수익')+': '+(Number.isSafeInteger(displayFare)?formatIncome(BigInt(displayFare)*4n):'확인 필요')+'원 (영업자 4% · 별도 보증금 제외)','portal-note'));
       const actions = text('div', '', 'actions');
       const secondaryActions=text('div','','actions');
-      secondaryActions.append(button('배차용 복사', () => openDispatchCopy(r)));
+      if(owner())secondaryActions.append(button('배차용 복사', () => openDispatchCopy(r)));
       if (r.thread_id && !owner()) actions.append(button('고객 문의 / 답변', async () => { await selectPage('chat'); await openThread(r.thread_id); }));
       for (const next of owner() ? (r.status==='approved'?['assigned','held']:r.status==='assigned'?['completed','held']:r.status==='held'?['restore','cancelled']:r.status==='cancelled'?['restore']:[]) : (r.status==='pending'?['held']:r.status==='held'? (r.held_from==='pending'?['restore','cancelled']:['cancelled']):r.status==='cancelled'&&r.held_from==='pending'?['restore']:[])) {
         const b = button(next === 'restore' ? '다시 진행' : next === 'assigned' ? '기사 배정 완료' : labels[next], async () => {
