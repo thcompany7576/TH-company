@@ -150,6 +150,35 @@
     if(r.agreed_fare!==null&&r.agreed_fare!==undefined){body=body.replace(/최종 요금:([^\n]*)/g,'접수 시 예상요금:$1');body+='\n\n[조정 운행요금] '+r.agreed_fare.toLocaleString('ko-KR')+'원'+(r.fare_reason?'\n조정 사유: '+r.fare_reason:'')+'\n관제 확인: '+(r.fare_checked_at?'완료':'대기');}
     return '[주문 '+orderNumber(r)+']\n'+body+(r.sales_notes?'\n\n[영업자 전달 특이사항]\n'+r.sales_notes:'');
   }
+  // Dispatch copy: draft only; never saves or assigns a third-party order.
+  function dispatchCopyData(r) {
+    const p=r.payload||{}, f=p.fields||{}, locations=p.locations||[];
+    const from=locations[0]||{}, to=locations[locations.length-1]||{}, stops=locations.slice(1,-1);
+    const place=x=>[x.businessName,x.address,x.detail,x.person,x.phone].filter(Boolean).join(' · ');
+    const pairs={'client-from':['의뢰자','출발지'],'client-to':['의뢰자','도착지'],'from-to':['출발지','도착지']};
+    const split=f.splitPayment==='on', pair=pairs[f.splitPair], ratio=Number(f.splitRatio);
+    let payment=f.paymentMethod==='현금'?(f.cashTiming||'현금 수령지 확인 필요'):(f.paymentMethod||'확인 필요');
+    if(split){
+      payment='나눠 내기 · 현금 수령지 확인 후 선불/착불 선택';
+      if(pair&&ratio>0&&ratio<100){payment+=' · '+pair[0]+' '+ratio+'% / '+pair[1]+' '+(100-ratio)+'%';if(f.splitPair==='client-from')payment+=' · 최초 선불',payment=payment.replace('현금 수령지 확인 후 선불/착불 선택','전체요금 현금 선불');if(f.splitPair==='client-to')payment+=' · 최초 착불',payment=payment.replace('현금 수령지 확인 후 선불/착불 선택','전체요금 현금 착불');}
+      payment+=' · 배차 후 수기 분리';
+    }
+    const fare=r.agreed_fare??p.quote?.total;
+    const options=[f.trip==='round'?'왕복':'편도',stops.length?'경유 '+stops.length+'개 · 수기 확인':'경유 없음',f.urgent==='yes'?'긴급':'일반'];
+    const schedule=String(r.summary||'').split('\n').filter(line=>/^(출발 희망 시간:|도착 희망 시간:|픽업:|물품:|물품 \(등록\):)/.test(line)).join('\n');
+    const notes=[f.notes,r.sales_notes,schedule,stops.length?'[추가 경유지 · 운행 순서대로 수기 확인]\n'+stops.map((x,i)=>(i+1)+'. '+place(x)).join('\n'):'',f.returnItem?'왕복 회수 물품: '+f.returnItem:''].filter(Boolean).join('\n');
+    return [['의뢰자',p.company||p.requester?.name||'확인 필요'],['의뢰자 연락처',p.requester?.phone||''],['출발지 조회',from.businessName||'상호 미등록 · 주소 직접 입력'],['출발지 상세',place(from)],['도착지 조회',to.businessName||'상호 미등록 · 주소 직접 입력'],['도착지 상세',place(to)],['적요',notes||'없음'],['결제 선택',payment],['배송 선택',options.join(' / ')],['기본요금',Number.isFinite(fare)?String(fare):'요금 확인 필요']];
+  }
+  function openDispatchCopy(r) {
+    let dialog=$('dispatchCopyDialog');
+    if(!dialog){dialog=document.createElement('dialog');dialog.id='dispatchCopyDialog';dialog.className='admin-dialog';dialog.setAttribute('aria-label','배차용 복사');document.body.append(dialog);}
+    dialog.replaceChildren();const head=text('div','','section-head');head.append(text('h2','주문 '+orderNumber(r)+' · 배차용 복사'),button('닫기',()=>dialog.close()));dialog.append(head,text('p','복사 후 우리네트웍에 직접 입력하세요. 기본요금 입력 후 Enter로 확인하고, 추가 경유지·분담 주문은 배차 전후 직접 확인하세요.','portal-note'));
+    const state=text('p','','portal-note');state.setAttribute('role','status');
+    const copy=async(value,input)=>{try{await navigator.clipboard.writeText(value);state.textContent='복사했습니다.';}catch{input.focus();input.select();state.textContent='자동 복사가 안 되어 내용을 선택했습니다. Ctrl+C로 복사해 주세요.';}};
+    const data=dispatchCopyData(r);
+    for(const [name,value] of data){const row=text('div','','section-head'),label=text('label',name),input=document.createElement('textarea');input.value=value;input.readOnly=true;input.rows=name==='적요'?4:2;input.setAttribute('aria-label',name);label.style.flex='1';label.style.minWidth='0';label.append(input);row.append(label,button('복사',()=>copy(input.value,input)));dialog.append(row);}
+    const all=document.createElement('textarea');all.value='[주문 '+orderNumber(r)+']\n'+data.map(([k,v])=>k+': '+v).join('\n');all.readOnly=true;all.rows=8;all.setAttribute('aria-label','배차 전체 내용');const details=text('details','');details.append(text('summary','전체 내용 보기'),all);dialog.append(button('전체 내용 복사',()=>copy(all.value,all)),state,details);dialog.showModal();
+  }
   function renderOrders() {
     $('orderSearch').hidden = !['completed','held','cancelled'].includes(status);
     const q = $('orderSearch').hidden ? '' : $('search').value.trim().toLowerCase(), root = $('orders'); root.replaceChildren();
@@ -190,7 +219,7 @@
       if(!owner()&&r.staff_id===staff.user_id&&Number.isFinite(displayFare))extra.append(text('p',(r.agreed_fare!=null&&r.fare_checked_at||r.status==='assigned'||r.status==='completed'?'내 수익':'내 예상 수익')+': '+(Number.isSafeInteger(displayFare)?formatIncome(BigInt(displayFare)*4n):'확인 필요')+'원 (영업자 4% · 별도 보증금 제외)','portal-note'));
       const actions = text('div', '', 'actions');
       const secondaryActions=text('div','','actions');
-      secondaryActions.append(button('코리아센터 입력용 내용 복사', async () => { try { await navigator.clipboard.writeText(officeOrderText(r)); notice('복사했습니다. 코리아센터에 직접 입력해 주세요.'); } catch { notice('복사하지 못했습니다. 전체 주문 내용을 선택해서 복사해 주세요.'); } }));
+      secondaryActions.append(button('배차용 복사', () => openDispatchCopy(r)));
       if (r.thread_id && !owner()) actions.append(button('고객 문의 / 답변', async () => { await selectPage('chat'); await openThread(r.thread_id); }));
       for (const next of owner() ? (r.status==='approved'?['assigned','held']:r.status==='assigned'?['completed','held']:r.status==='held'?['restore','cancelled']:r.status==='cancelled'?['restore']:[]) : (r.status==='pending'?['held']:r.status==='held'? (r.held_from==='pending'?['restore','cancelled']:['cancelled']):r.status==='cancelled'&&r.held_from==='pending'?['restore']:[])) {
         const b = button(next === 'restore' ? '다시 진행' : next === 'assigned' ? '기사 배정 완료' : labels[next], async () => {
