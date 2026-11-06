@@ -44,7 +44,7 @@
     document.querySelector('[data-page=daily]').hidden=!(representative()||staff.role==='sales');
     status = owner() ? 'approved' : 'pending';
     document.querySelector('[data-page=chat]').hidden = false;document.querySelector('[data-page=chat]').firstChild.textContent=owner()?'고객 문의 모니터링 ':'문의함 ';$('page-chat').querySelector('h2').textContent=owner()?'고객 문의 모니터링':'문의함';$('replyForm').hidden=owner();$('page-chat').querySelector('.portal-note').textContent=owner()?'영업자별 고객 대화를 읽기 전용으로 확인합니다. 답변은 담당 영업자가 보냅니다.':'영업자 링크로 들어온 고객의 주문·문의가 담당 영업자에게 연결됩니다.';
-    document.querySelectorAll('[data-status]').forEach(b=>{b.hidden=owner()&&b.dataset.status==='pending';b.className=b.dataset.status===status?'':'secondary';b.setAttribute('aria-pressed',String(b.dataset.status===status));});
+    document.querySelectorAll('[data-status]').forEach(b=>{b.hidden=false;b.className=b.dataset.status===status?'':'secondary';b.setAttribute('aria-pressed',String(b.dataset.status===status));});
     $('login').hidden = true; $('dashboard').hidden = false; $('logout').hidden = false;
     document.querySelectorAll('[data-owner-only]').forEach(e => e.hidden = !owner());
     document.querySelectorAll('[data-representative-only]').forEach(e => e.hidden = !representative());
@@ -189,6 +189,8 @@
     for (const r of selected) {
       const card = text('article', '', 'order-card'), head = text('div', '', 'section-head');
       card.dataset.orderId=r.id;
+      if(owner()&&r.status==='pending'){const minutes=Math.max(0,Math.floor((Date.now()-new Date(r.created_at))/60000));card.append(text('p','영업자 확인 대기 · '+minutes+'분',minutes>=5?'order-note':'portal-note'));}
+      if(owner()&&r.staff_id){const s=staffRows.find(s=>s.user_id===r.staff_id);card.append(text('p','담당 영업자: '+(s?.name||'확인 중'),'portal-note'));}
       head.append(text('h3', (r.payload?.requester?.name||r.payload?.company||'고객')+' · 주문 ' + orderNumber(r)), text('span', r.status==='held'&&r.held_from==='pending'?'영업자 승인 전 보류':labels[r.status], 'tag')); card.append(head);
       const who = r.payload?.requester;
       if(r.payload?.memberGoods)card.append(text('p','취급 물품: '+(r.payload.memberGoods.description || '미등록 · 의뢰자 물품 확인 필요'),'portal-note'));
@@ -220,9 +222,16 @@
       if(!owner()&&r.staff_id===staff.user_id&&Number.isFinite(displayFare))extra.append(text('p',(r.agreed_fare!=null&&r.fare_checked_at||r.status==='assigned'||r.status==='completed'?'내 수익':'내 예상 수익')+': '+(Number.isSafeInteger(displayFare)?formatIncome(BigInt(displayFare)*4n):'확인 필요')+'원 (영업자 4% · 별도 보증금 제외)','portal-note'));
       const actions = text('div', '', 'actions');
       const secondaryActions=text('div','','actions');
+      if(r.action_request){
+        const panel=text('div','','fare-adjustment');panel.style.borderColor='#c43c45';panel.append(text('strong',(r.action_request==='held'?'보류':'취소')+' 요청 중 · 관제 확인 필요','order-note'),text('p',r.action_reason));
+        if(owner())for(const accept of [true,false])panel.append(button(accept?'요청 승인':'요청 반려',async()=>{const reason=accept?'':prompt('반려 사유를 입력해 주세요.');if(!accept&&!reason?.trim())return;if(!confirm(accept?'요청을 승인하여 주문 상태를 변경할까요?':'요청을 반려할까요?'))return;try{await api.rpc('th6_order_action_decide',{p_id:r.id,p_requested_at:r.action_requested_at,p_accept:accept,p_reason:reason});await loadOrders(true);}catch(e){notice(e.message);}}));
+        card.append(panel);
+      }
+      if(!owner()&&!r.action_request&&['pending','approved','assigned','held'].includes(r.status))secondaryActions.append(button(r.status==='held'?'취소 요청':'보류 요청',async()=>{const reason=prompt('관제에 전달할 '+(r.status==='held'?'취소':'보류')+' 사유를 입력해 주세요.');if(!reason?.trim())return;try{await api.rpc('th6_order_action_request',{p_id:r.id,p_action:r.status==='held'?'cancelled':'held',p_reason:reason.trim()});await loadOrders(true);notice('관제에 요청했습니다. 승인 전까지 기존 상태가 유지됩니다.');}catch(e){notice(e.message);}}));
+      const history=r.action_history||[];if(history.length){const log=text('details','');log.append(text('summary','보류·취소 요청 처리 기록'));for(const h of history)log.append(text('p',(h.action==='held'?'보류':'취소')+' · '+(h.accepted===true?'승인':h.accepted===false?'반려':'요청')+' · '+(h.reason||h.request_reason||'')+' · '+koreaTime(h.processed_at||h.requested_at)));extra.append(log);}
       if(owner())secondaryActions.append(button('배차용 복사', () => openDispatchCopy(r)));
       if (r.thread_id && !owner()) actions.append(button('고객 문의 / 답변', async () => { await selectPage('chat'); await openThread(r.thread_id); }));
-      for (const next of owner() ? (r.status==='approved'?['assigned','held']:r.status==='assigned'?['completed','held']:r.status==='held'?['restore','cancelled']:r.status==='cancelled'?['restore']:[]) : (r.status==='pending'?['held']:r.status==='held'? (r.held_from==='pending'?['restore','cancelled']:['cancelled']):r.status==='cancelled'&&r.held_from==='pending'?['restore']:[])) {
+      for (const next of owner()&&!r.action_request ? (r.status==='pending'?['held']:r.status==='approved'?['assigned','held']:r.status==='assigned'?['completed','held']:r.status==='held'?['restore','cancelled']:r.status==='cancelled'?['restore']:[]) : []) {
         const b = button(next === 'restore' ? '다시 진행' : next === 'assigned' ? '기사 배정 완료' : labels[next], async () => {
           const question = next === 'assigned' ? '운행요금 '+(Number.isFinite(displayFare)?displayFare.toLocaleString('ko-KR')+'원':'확인 중')+' · 코리아센터에서 기사 배정을 확인했나요? 배정 완료로 처리하고 고객에게 알립니다.' : next === 'restore' ? (r.held_from==='pending'?'주문을 영업자 확인 중으로 되돌릴까요? 영업자 승인 후 관제로 전달됩니다.':'주문을 관제 배정 대기로 되돌릴까요? 기사 배정을 다시 확인해야 합니다.') : next === 'cancelled' ? '이 주문을 취소 목록으로 옮길까요? 취소 후 12시간 동안만 복구할 수 있으며, 이후 내역과 연결 대화가 자동 삭제됩니다.' : next === 'held' ? '이 주문을 보류할까요? 보류 후 48시간 내에 복구하지 않으면 자동 취소·삭제됩니다.' : '이 주문을 완료 처리할까요?';
           if (!confirm(question)) return; b.disabled = true;
@@ -255,7 +264,7 @@
           if(enabled.checked&&(!price.reportValidity()||!consent.checked)){notice('조정 요금을 입력하고 고객 확인에 체크해 주세요.');return;}
           if(!confirm('주문 내용과 요청 방식을 확인했나요? 승인하면 관제에 전달됩니다.'))return;
           approve.disabled=true;try{await api.rpc('th6_approve_contract',{...contractArgs,p_id:r.id,p_notes:notes.value,p_fare:enabled.checked?Number(price.value):null,p_reason:enabled.checked?reason.value:'',p_customer_confirmed:enabled.checked&&consent.checked});await loadOrders(true);notice('승인한 주문을 관제로 전달했습니다.');}catch(e){notice(e.message);approve.disabled=false;}
-        },'');actions.prepend(approve);
+        },'');approve.disabled=Boolean(r.action_request);actions.prepend(approve);
       }
       extra.append(secondaryActions);card.append(actions,extra); root.append(card);
     }
@@ -531,6 +540,12 @@
     badge.textContent=count||'';badge.hidden=!count;
   }
   async function refreshHeldCount() {
+    if(owner()){
+      let panel=$('controlActionRequests');if(!panel){panel=text('div','','fare-adjustment');panel.id='controlActionRequests';$('orders').before(panel);}
+      const pending=await api.api('/rest/v1/th6_requests?select=id,order_number,status,action_request,action_reason&action_request=not.is.null&order=action_requested_at.asc&limit=1000');
+      if(!staff||!owner())return;panel.replaceChildren();panel.hidden=!pending.length;
+      if(pending.length){panel.style.borderColor='#c43c45';panel.append(text('strong','보류·취소 요청 '+pending.length+'건 · 관제 처리 필요','order-note'));for(const r of pending)panel.append(button('주문 '+orderNumber(r)+' · '+(r.action_request==='held'?'보류':'취소')+' 요청',async()=>{status=r.status;document.querySelectorAll('[data-status]').forEach(b=>{b.className=b.dataset.status===status?'':'secondary';b.setAttribute('aria-pressed',String(b.dataset.status===status));});await loadOrders(true);const card=[...$('orders').children].find(c=>c.dataset.orderId===r.id);card?.scrollIntoView({block:'center'});}));}
+    }else if($('controlActionRequests'))$('controlActionRequests').hidden=true;
     let count=0, chunk;
     do {
       chunk=await api.api('/rest/v1/th6_requests?select=id&status=eq.held&expires_at=gt.'+encodeURIComponent(new Date().toISOString())+'&order=id.asc&limit=1000&offset='+count);
