@@ -339,7 +339,7 @@
     let sameWrap=box.querySelector('[data-extra-profile-wrap]');
     if(!sameWrap){sameWrap=document.createElement('label');sameWrap.dataset.extraProfileWrap='';sameWrap.className='inline';const check=document.createElement('input');check.type='checkbox';check.dataset.extraSameProfile='';sameWrap.append(check,document.createTextNode(' 의뢰자 정보와 동일'));wrap.after(sameWrap);}
     wrap.hidden=sameWrap.hidden=!profile;const select=wrap.querySelector('select'),same=sameWrap.querySelector('input'),value=select.value;select.replaceChildren(new Option('저장한 거래처 선택',''));
-    for(const p of partners)select.append(new Option(p.title,p.id));select.value=value;
+    for(const p of partners){const opt=new Option(p.title,p.id);opt.dataset.address=p.address+' '+(p.detail||'');select.append(opt);}select.value=value;
     function apply(location){
       const address=box.querySelector('[data-searched-address]');address.value=location.address;
       for(const key of ['selectedAddress','areaCode','township','county','businessName','businessAddress','businessDetail'])delete address.dataset[key];
@@ -358,7 +358,7 @@
     partners.sort((a,b)=>String(a.title||'').trim().localeCompare(String(b.title||'').trim(),'ko',{numeric:true,sensitivity:'base'}));
     for (const select of document.querySelectorAll('[data-partner-select]')) {
       const value = select.value; select.replaceChildren(); const blank = text('option', '저장한 거래처 선택'); blank.value = ''; select.append(blank);
-      for (const p of partners) { const opt = text('option', p.title); opt.value = p.id; select.append(opt); }
+      for (const p of partners) { const opt = text('option', p.title); opt.value = p.id; opt.dataset.address=p.address+' '+(p.detail||''); select.append(opt); }
       select.value = value;
     }
     document.querySelectorAll("fieldset.stop").forEach(extraPartnerChoice);
