@@ -14,6 +14,11 @@ body{margin:0;background:#111;color:#fff;font-family:Arial,"Noto Sans KR",sans-s
 .wrap{max-width:760px;margin:auto;padding:14px 12px 30px}
 .card{background:#171717;border:2px solid #ffe000;border-radius:24px;overflow:hidden;box-shadow:0 12px 35px rgba(0,0,0,.45)}
 .hero{width:100%;height:auto;display:block}
+.brand-header{display:flex;align-items:center;gap:14px;padding:22px 24px;background:#61525d;color:#f3edef;border-bottom:3px solid #f3d442}
+.brand-mark{font-size:clamp(32px,7vw,48px);font-weight:800;letter-spacing:-1.8px;line-height:1.1;white-space:nowrap}
+.brand-mark strong{color:#f3d442;font-weight:900}.brand-mark span{font-weight:500}
+.brand-caption{margin-left:auto;font-size:12px;letter-spacing:1.6px;white-space:nowrap;color:#f3edef}
+@media(max-width:400px){.brand-header{padding:20px 16px}.brand-caption{font-size:10px;letter-spacing:.6px}}
 .content{padding:18px 16px 22px}
 .title{font-size:30px;font-weight:900;margin:0 0 5px;color:#ffe000}
 .sub{margin:0 0 18px;color:#ddd;font-size:16px}
@@ -31,6 +36,7 @@ body{margin:0;background:#111;color:#fff;font-family:Arial,"Noto Sans KR",sans-s
 <body>
 <div class="wrap">
   <div class="card">
+    <header class="brand-header"><div class="brand-mark" aria-label="THcompany"><strong>TH</strong><span>company</span></div><span class="brand-caption">QUICK SERVICE</span></header>
     <img class="hero" src="th-company-team-banner.png" alt="TH company 공통 명함 — 바이크 라이더" width="1536" height="1024">
     <div class="content">
       <h1 class="title">TH company</h1>
