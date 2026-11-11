@@ -18,11 +18,20 @@
   const clientManager = () => representative() || staff?.role === 'sales';
   const koreaTime = value => new Date(value).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
   async function accountAction(args) { return api.api('/functions/v1/manage-client-account', { method: 'POST', body: JSON.stringify(args) }); }
+  let qrLoader;
+  async function openCardQR(person){
+    try{
+      if(!person?.active||person.role!=='sales')throw Error('활성 영업자만 QR코드를 만들 수 있습니다.');
+      if(!window.TH_CARD_QR){if(!qrLoader)qrLoader=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='card-qr.js';s.onload=resolve;s.onerror=()=>{s.remove();qrLoader=null;reject(Error('QR코드를 불러오지 못했습니다. 다시 눌러 주세요.'));};document.head.append(s);});await qrLoader;}
+      await window.TH_CARD_QR.open(person);
+    }catch(e){notice(e.message);}
+  }
   function showOwnCard() {
     const enabled=staff?.active&&staff.role==='sales';$('ownCard').hidden=!enabled;
     if(!enabled){$('ownCardLink').removeAttribute('href');$('ownCardLink').textContent='';return;}
     const link=new URL('index.html',location.href);link.searchParams.set('v','brand2');if(staff.link_slug)link.searchParams.set('sales',staff.link_slug);
     $('ownCardTitle').textContent=staff.name+'님의 온라인명함';$('ownCardLink').href=link.href;$('ownCardLink').textContent=link.href;
+    if(!$('ownCardQR')){const b=button('명함 QR 보기 · 저장',()=>openCardQR(staff));b.id='ownCardQR';$('ownCardCopy').after(b);}
   }
   $('ownCardCopy').onclick=async()=>{
     if(!staff?.active||staff.role!=='sales')return;
@@ -287,6 +296,7 @@
         card.append(text('p', link.href, 'link-preview')); card.append(button('홍보 링크 복사', async () => { try { await navigator.clipboard.writeText(link.href); notice('영업자 링크를 복사했습니다.'); } catch { notice('표시된 링크를 직접 복사해 주세요.'); } }));
       } else if (r.role !== 'owner') card.append(text('p', new URL('index.html', location.href).href, 'link-preview'));
       card.append(text('p', r.active ? '활성화' : '비활성화', 'portal-note'));
+      if(r.active&&r.role==='sales'&&(r.link_slug||r.is_representative))card.append(button('명함 QR 보기 · 저장',()=>openCardQR(r)));
       if (r.role === 'sales' && !r.is_representative) {
         const actions=text('div','','actions');
         actions.append(button('영업자 수정',()=>editStaff(r)),button('영업자 삭제',async()=>{
