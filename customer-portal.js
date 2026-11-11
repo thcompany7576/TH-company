@@ -17,7 +17,7 @@
     const version=++reservationContactVersion,link=$('reservationCall'),note=$('reservationContactNote');
     $('reservationInquiry').hidden=Boolean(window.TH_DIRECT_MODE);link.hidden=true;link.removeAttribute('href');
     if(window.TH_DIRECT_MODE)return;
-    note.textContent='담당 영업자 연락처를 확인하고 있습니다.';
+    note.hidden=false;note.textContent='예약 문의 연락처 확인 중';
     try {
       let contact=person;
       if(contact&&!contact.phone&&contact.slug)contact=await api.rpc('th6_public_route',{p_slug:contact.slug});
@@ -25,8 +25,8 @@
       const digits=String(contact.phone||'').replace(/-/g,'');
       if(!/^0[0-9]{8,10}$/.test(digits))throw Error('담당 영업자의 온라인 명함에서 연락처를 확인해 주세요.');
       if(version!==reservationContactVersion)return;
-      link.href='tel:'+digits;link.textContent=(contact.name||'담당 영업자')+'에게 예약 전화 문의';link.hidden=false;
-      note.textContent='예약 가능 여부와 요금은 담당 영업자와 확인해 주세요.';
+      link.href='tel:'+digits;link.textContent='예약은 담당 영업자에게 전화 문의';link.hidden=false;
+      note.textContent='';note.hidden=true;
     }catch(e){if(version===reservationContactVersion)note.textContent=e.message;}
   }
   function updateSalesCard() {
