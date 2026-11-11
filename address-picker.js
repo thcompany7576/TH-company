@@ -1,11 +1,11 @@
 (() => {
   let loading, busy = false;
   function sdk() {
-    if (window.daum?.Postcode) return Promise.resolve();
+    if (window.kakao?.Postcode) return Promise.resolve();
     if (!loading) loading = new Promise((resolve, reject) => {
-      const s = document.createElement('script'); s.src = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+      const s = document.createElement('script'); s.src = 'https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
       const timer = setTimeout(() => reject(Error('주소 검색 연결 시간이 초과되었습니다.')), 15000);
-      s.onload = () => { clearTimeout(timer); resolve(); }; s.onerror = () => { clearTimeout(timer); reject(Error('주소 검색을 불러오지 못했습니다.')); };
+      s.onload = () => { clearTimeout(timer); if(window.kakao?.Postcode)resolve();else reject(Error('주소 검색 서비스를 확인하지 못했습니다. 다시 시도해 주세요.')); }; s.onerror = () => { clearTimeout(timer); reject(Error('주소 검색을 불러오지 못했습니다.')); };
       document.head.append(s);
     }).catch(e => { loading = null; throw e; });
     return loading;
@@ -22,7 +22,7 @@
         const holder = document.createElement('div'); holder.style.height = 'min(520px,70dvh)'; dialog.append(close, holder); document.body.append(dialog);
         let result = null;
         dialog.addEventListener('close', () => { dialog.remove(); resolve(result); }, { once: true }); close.onclick = () => dialog.close();
-        dialog.showModal(); new daum.Postcode({ width: '100%', height: '100%', oncomplete(data) {
+        dialog.showModal(); new kakao.Postcode({ width: '100%', height: '100%', oncomplete(data) {
           const address = data.userSelectedType === 'R' ? data.roadAddress : data.jibunAddress;
           if (!address) return;
           result = { address, meta: { areaCode: String(data.sigunguCode || data.bcode?.slice(0,5) || ''),

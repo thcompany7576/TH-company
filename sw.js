@@ -1,5 +1,5 @@
 'use strict';
-const VERSION = 'th6-20261111-member-payment';
+const VERSION = 'th6-20261111-postcode-domain';
 const shell = ['order.html','admin.html','config.js','portal-api.js','customer-portal.js','sales-direct.js','route-time.js','contract-routes.js','address-picker.js','admin.js','admin-push.js','business-hours.js','voice-notifications.js','dispatch-chat.js','portal.css','admin.css','th-theme.css','pwa.js','pwa-route.js','order.webmanifest','admin.webmanifest','icon-192.png','icon-512.png'];
 shell.push('card-qr.js','partner-search.js');
 self.addEventListener('install', event => event.waitUntil(caches.open(VERSION).then(cache => cache.addAll(shell.map(path=>new Request(path,{cache:'reload'})))).then(()=>self.skipWaiting())));
