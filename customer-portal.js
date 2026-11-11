@@ -12,8 +12,26 @@
   const orderNumber=t=>String(t.orderNumber||'확인 중');
   const statusLabels={pending:'영업자 확인 중',approved:'관제 배정 대기',assigned:'기사 배정 완료',completed:'완료',held:'보류',cancelled:'취소'};
   const account=()=>profile?.contactId||'guest:'+sales;
+  let reservationContactVersion=0, guestReservationContact=null;
+  async function updateReservationContact(person) {
+    const version=++reservationContactVersion,link=$('reservationCall'),note=$('reservationContactNote');
+    $('reservationInquiry').hidden=Boolean(window.TH_DIRECT_MODE);link.hidden=true;link.removeAttribute('href');
+    if(window.TH_DIRECT_MODE)return;
+    note.textContent='담당 영업자 연락처를 확인하고 있습니다.';
+    try {
+      let contact=person;
+      if(contact&&!contact.phone&&contact.slug)contact=await api.rpc('th6_public_route',{p_slug:contact.slug});
+      if(!contact)throw Error('담당 영업자의 온라인 명함에서 연락처를 확인해 주세요.');
+      const digits=String(contact.phone||'').replace(/-/g,'');
+      if(!/^0[0-9]{8,10}$/.test(digits))throw Error('담당 영업자의 온라인 명함에서 연락처를 확인해 주세요.');
+      if(version!==reservationContactVersion)return;
+      link.href='tel:'+digits;link.textContent=(contact.name||'담당 영업자')+'에게 예약 전화 문의';link.hidden=false;
+      note.textContent='예약 가능 여부와 요금은 담당 영업자와 확인해 주세요.';
+    }catch(e){if(version===reservationContactVersion)note.textContent=e.message;}
+  }
   function updateSalesCard() {
     if(!profile)return;
+    updateReservationContact(profile.sales);
     const link=document.querySelector('main > a[href]');
     const target=new URL('index.html',location.href);
     target.searchParams.set('member','1');
@@ -121,6 +139,7 @@
   }
   async function enter(nextMode) {
     if(memberApp && (!profile || !api.session)){showEntry();return;}
+    updateReservationContact(profile ? profile.sales : guestReservationContact);
     await refreshSettings(); mode = nextMode;inbox=[];inboxBaseline=false;chatDrafts.clear();$('chatBody').value='';loginDialog.close();paymentChoices();memberGoods();
     const agencyDoc=$('agencyFrame').contentDocument;if(agencyDoc?.getElementById('order'))paymentChoices(agencyDoc.getElementById('order'),agencyDoc);
     $('memberInstall').hidden=!profile;$('memberLoginOpen').hidden=Boolean(profile);
@@ -514,8 +533,10 @@
     if (sales) try {
       const route = await api.rpc('th6_public_route', { p_slug: sales });
       if (!route) throw Error('사용할 수 없는 영업자 링크입니다. 안내받은 주소를 확인해 주세요.');
+      guestReservationContact=route;updateReservationContact(route);
       $('salesRoute').textContent = route.name + ' 담당 접수 · 주문과 문의가 담당자에게 전달됩니다.';
     } catch (e) { $('entryError').textContent = e.message; $('guestOrderButton').disabled = true; $('chatOpen').disabled = true; return; }
+    if(!sales){guestReservationContact={name:'권태형',phone:'010-2145-7576'};updateReservationContact(guestReservationContact);}
     try { await api.restore();
 
       await refreshSettings();
