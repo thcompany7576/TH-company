@@ -111,6 +111,12 @@
     for(const [value,label] of profile?[['신용','신용 · 의뢰자 결제'],['선불','선불 · 출발지 결제'],['착불','착불 · 도착지 결제']]:[['카드','카드'],['현금','현금']]){const option=text('option',label);option.value=value;select.append(option);}
     const split=doc.getElementById('splitPayment');if(split){split.checked=false;split.disabled=false;split.closest('label').hidden=false;}
     const pair=doc.getElementById('splitPair');if(pair){for(const option of pair.options){option.hidden=option.disabled=!profile&&option.value!=='from-to';}pair.value='from-to';}
+    const customerMember=Boolean(profile);
+    doc.documentElement.dataset.orderPayment=customerMember?'member':'guest';
+    select.closest('label').dataset.paymentChoice='';
+    if(split)split.closest('label').dataset.splitChoice='';
+    if(customerMember)select.value='신용';
+    const heading=select.closest('section')?.querySelector('h2');if(heading)heading.textContent=customerMember?'특이사항':'결제·특이사항';
     select.dispatchEvent(new Event('change',{bubbles:true}));
   }
   function showEntry() {

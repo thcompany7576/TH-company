@@ -5,6 +5,7 @@
  const label=p=>p?.method==='split'?pairs[p.pair][0]+' '+p.ratio+'% / '+pairs[p.pair][1]+' '+(100-p.ratio)+'%':p?.method||'주문마다 선택';
  async function load(id){rules=[];client=id;if(id)rules=await window.TH_API.rpc('th6_contract_list',{p_client:id});sync();}
  function sync(){if(!$('order'))return;const rule=match(),p=rule?.payment,shouldLock=Boolean(p?.method);if(locked&&!shouldLock){for(const id of ['paymentMethod','splitPayment','splitPair','splitRatio'])if($(id))$(id).disabled=false;}locked=shouldLock;
+  if(!shouldLock&&window.TH_PORTAL?.profile){$('paymentMethod').value='신용';$('splitPayment').checked=false;$('splitFields').hidden=true;}
   if(shouldLock){$('paymentMethod').value=p.method==='split'?'신용':p.method;$('splitPayment').checked=p.method==='split';if(p.method==='split'){$('splitPair').value=p.pair;$('splitRatio').value=String(p.ratio);}for(const id of ['paymentMethod','splitPayment','splitPair','splitRatio'])$(id).disabled=true;}
   if(shouldLock){$('splitFields').hidden=p.method!=='split';const names=pairs[p.pair]||pairs['from-to'];$('splitHint').textContent=names[0]+' '+p.ratio+'% / '+names[1]+' '+(100-p.ratio)+'%';for(const opt of $('splitRatio').options){const n=Number(opt.value);opt.textContent=names[0]+' '+n+'% / '+names[1]+' '+(100-n)+'%';}}
   const note=$('contractNote');if(note){note.hidden=!rule;const stops=window.TH_ORDER?.routeLocations().length>2;note.textContent=rule?'약정 편도요금 '+rule.fare.toLocaleString('ko-KR')+'원'+(shouldLock?' · '+label(p)+' 고정':'')+(stops?' · 경유지 포함: 담당 영업자 확인 후 최종 요금 확정':''):'';}
