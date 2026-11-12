@@ -136,7 +136,14 @@
       const data=await api.rpc('th6_daily_sales',{p_day:$('dailyDay').value});
       if(stamp!==dailyGeneration||staff?.user_id!==user||page!=='daily')return;
       const totals={count:0,fare:0,missing:0};let totalIncome=0n;
-      for(const r of data.rows){const tr=document.createElement('tr');for(const value of [r.staff_name,Number(r.count).toLocaleString('ko-KR')+'건',Number(r.fare).toLocaleString('ko-KR')+'원',formatIncome(incomeCents(r.income))+'원'])tr.append(text('td',value));$('dailyRows').append(tr);for(const key of Object.keys(totals))totals[key]+=Number(r[key]);totalIncome+=incomeCents(r.income);}
+      for(const r of data.rows){const tr=document.createElement('tr');for(const value of [r.staff_name,Number(r.count).toLocaleString('ko-KR')+'건',Number(r.fare).toLocaleString('ko-KR')+'원',formatIncome(incomeCents(r.income))+'원'])tr.append(text('td',value));$('dailyRows').append(tr);
+      const detailRow=document.createElement('tr'),cell=document.createElement('td');cell.colSpan=4;
+      const detail=document.createElement('details');detail.className='daily-client-detail';detail.append(text('summary','의뢰자별 내역'+(Array.isArray(r.clients)?' · '+r.clients.length+'개':'')));
+      if(Array.isArray(r.clients)){
+        const table=document.createElement('table');table.className='daily-table';table.setAttribute('aria-label',r.staff_name+' 의뢰자별 집계');const head=document.createElement('tr');for(const title of ['의뢰자','완료 건수','퀵비 합계','실수익']){const th=text('th',title);th.scope='col';head.append(th);}const thead=document.createElement('thead');thead.append(head);table.append(thead);const body=document.createElement('tbody');
+        for(const client of r.clients){const row=document.createElement('tr');for(const value of [client.client_name,Number(client.count).toLocaleString('ko-KR')+'건',Number(client.fare).toLocaleString('ko-KR')+'원',formatIncome(incomeCents(client.income))+'원'])row.append(text('td',value));body.append(row);if(Number(client.missing))detail.append(text('p',client.client_name+' · 요금 확인 필요 '+client.missing+'건','portal-note'));}table.append(body);detail.append(table);
+      }else detail.append(text('p','의뢰자별 집계 준비 중입니다. 기존 영업자 합계는 그대로 유지됩니다.','portal-note'));
+      cell.append(detail);detailRow.append(cell);$('dailyRows').append(detailRow);for(const key of Object.keys(totals))totals[key]+=Number(r[key]);totalIncome+=incomeCents(r.income);}
       $('dailyTotal').textContent='합계 '+totals.count.toLocaleString('ko-KR')+'건 · 퀵비 '+totals.fare.toLocaleString('ko-KR')+'원 · 실수익 '+formatIncome(totalIncome)+'원';
       $('dailyNote').textContent=totals.missing?'요금 확인이 필요한 완료 주문 '+totals.missing+'건이 있습니다. 금액 합계에서 제외되어 있으니 장부 작성 전 확인해 주세요.':(!data.rows.length?'해당 날짜에 집계된 완료 주문이 없습니다. ': '')+($('dailyDay').value===data.today?'오늘은 진행 중 집계입니다. 완료 처리에 따라 달라집니다.':'한국 시간 기준 하루 집계입니다.');
     }catch(e){if(stamp===dailyGeneration&&staff?.user_id===user)$('dailyNote').textContent='집계를 불러오지 못했습니다. '+e.message;}
