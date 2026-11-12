@@ -60,7 +60,7 @@
   if(rows.length-1>MAX)throw Error('한 번에 200개까지 등록할 수 있습니다. 파일을 나누어 주세요.');
   const seen=new Set(existing.map(identity));return rows.slice(1).map((row,i)=>{
    const item=Object.fromEntries(keys.map((k,n)=>[k,clean(row[indexes[n]])]));item.phone=item.phone.replace(/[\s().]/g,'');let error='';
-   if(!item.title||item.title.length>100)error='거래처명 확인';else if(!item.address||item.address.length>300)error='주소 확인';else if(item.detail.length>300)error='상세위치 300자 초과';else if(item.phone&&!/^[0-9-]{9,14}$/.test(item.phone))error='연락처 확인 (앞자리 0 포함)';
+   if(!item.title||item.title.length>100)error='거래처명 확인';else if(!item.address||item.address.length>300)error='주소 확인';else if(item.detail.length>300)error='상세위치 300자 초과';else if(item.phone&&!/^0[0-9-]{8,13}$/.test(item.phone))error='연락처는 0으로 시작해야 합니다';
    if(Object.values(item).some(v=>v.startsWith('[수식:')))error='수식 대신 값으로 붙여넣기';
    const key=identity(item),duplicate=seen.has(key);if(!error)seen.add(key);return {item,line:i+2,error,duplicate,selected:!error&&!duplicate};
   });
