@@ -403,14 +403,16 @@
   });
   function addressMeta(input) { return Object.fromEntries(['areaCode', 'township', 'county'].map(k => [k, input.dataset[k] || ''])); }
   function renderPartners() {
-    const root = $('partnerList'); root.replaceChildren();$('partnerAdd').hidden=Boolean(window.TH_DIRECT?.control);
+    for(const el of document.querySelectorAll('[data-save-partner]'))el.hidden=!window.TH_DIRECT_MODE;
+    $('partner_person').closest('label').hidden=true;
+    const root = $('partnerList'); root.replaceChildren();$('partnerAdd').hidden=!window.TH_DIRECT_MODE;
     for (const p of partners) {
       const card = text('div', '', 'partner-card'); card.append(text('strong', p.title), text('p', p.address + ' ' + p.detail), text('p', p.person + ' · ' + p.phone));
       const actions = text('div', '', 'actions'), edit = text('button', '수정', 'secondary'), remove = text('button', '삭제', 'secondary');
-      remove.hidden=Boolean(window.TH_DIRECT?.control);
+      edit.hidden=remove.hidden=!window.TH_DIRECT_MODE;
       edit.type = remove.type = 'button'; edit.onclick = () => editPartner(p);
       remove.onclick = async () => {
-        if (!confirm(p.title + ' 거래처를 삭제할까요?')) return; remove.disabled = true;
+        if (!confirm(p.title + ' 거래처를 모든 의뢰자의 공용 목록에서 숨길까요?')) return; remove.disabled = true;
         try { await api.api('/rest/v1/th6_partners?id=eq.' + p.id, { method: 'DELETE' }); await loadPartners(); }
         catch (e) { $('partnerError').textContent = e.message; remove.disabled = false; }
       };
@@ -420,6 +422,7 @@
   }
   let editingPartner = null;
   function editPartner(p) {
+    if(!window.TH_DIRECT_MODE)return;
     editingPartner = p || { id: null }; $('partnerEditor').hidden = false;
     for (const key of ['title', 'address', 'detail', 'person', 'phone']) $('partner_' + key).value = p?.[key] || '';
     $('partner_address').dataset.meta = JSON.stringify(p?.address_meta || {});

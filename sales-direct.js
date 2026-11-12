@@ -12,19 +12,7 @@
  $('review').insertBefore(review,$('review').querySelector('.actions'));$('sms').textContent='접수 · 관제로 전달';
  const hide=document.createElement('style');hide.textContent='main>a,#chatOpen,#soundChoose,#memberLoginOpen,#memberInstall,#accountActions,#activeOrders,#customerInbox,#requesterCard,#portalEntry,#agencyView,[data-save-partner],#partnerManagerButton{display:none!important}#directIdentity{margin-top:0}#directReview{padding:12px}';document.head.append(hide);
  function navigate(client,contact,salesId=params.get('staff')){if(($('order').elements.from.value||$('order').elements.to.value||$('order').elements.namedItem('item')?.value)&&!confirm('고객을 바꾸면 작성 중인 주문 내용이 초기화됩니다. 바꿀까요?'))return;const url=new URL(location.href);url.searchParams.delete('client');url.searchParams.delete('contact');url.searchParams.delete('staff');if(control&&salesId)url.searchParams.set('staff',salesId);if(client)url.searchParams.set('client',client);if(contact)url.searchParams.set('contact',contact);location.href=url.href;}
- api.api=async(path,options)=>{
-  if(control&&path.startsWith('/rest/v1/th6_partners')){
-   if(options?.method&&options.method!=='GET'){
-    if(options.method!=='PATCH'||!profile)throw Error('관제에서는 선택한 거래처의 정보만 수정할 수 있습니다.');
-    const id=new URLSearchParams(path.split('?')[1]).get('id')?.replace(/^eq\./,'');
-    const updated=await baseRpc('th6_control_partner_save',{p_staff:staff.user_id,p_client:profile.clientId,p_partner:id,p_values:JSON.parse(options.body)});
-    context.partners=context.partners.map(p=>p.id===updated.id?updated:p);return null;
-   }
-   if(!profile||new URLSearchParams(path.split('?')[1]).get('client_id')!=='eq.'+profile.clientId)throw Error('선택한 의뢰자의 거래처만 확인할 수 있습니다.');
-   return context.partners;
-  }
-  return baseApi(path,options);
- };
+
  api.restore=()=>ready||(ready=(async()=>{await baseRestore();if(!api.session)throw Error('관리페이지에 로그인해 주세요.');actorStaff=(await baseApi('/rest/v1/th6_staff?select=*&user_id=eq.'+api.session.user.id))[0];if(!actorStaff?.active||!['sales','owner'].includes(actorStaff.role))throw Error('직접 접수 권한이 없습니다.');
  control=actorStaff.role==='owner';staff=actorStaff;let clients;
  if(control){
@@ -44,7 +32,6 @@
  })().catch(e=>{$('directError').textContent=e.message;$('portalContent').hidden=true;throw e;}));
  api.rpc=async(name,args={})=>{
  if(name==='th6_profile')return profile;
- if(control&&name==='th6_contract_list'){if(args.p_client!==profile?.clientId)throw Error('선택한 의뢰자만 확인해 주세요.');return context.contracts;}
  if(name==='th6_customer_threads')return [];
  if(name==='th6_open_thread')return {id:args.p_id};
  if(name==='th6_submit_request'){
