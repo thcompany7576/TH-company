@@ -343,7 +343,7 @@
     if (c) try { await loadClientAccounts(); } catch (e) { $('clientNotice').textContent = e.message; }
   }
   $('newClient').onclick = () => editClient(null); $('clientClose').onclick = () => $('clientDialog').close();
-  $('clientAddress').onclick = async () => { if (!clientManager()) return; try { const result = await window.TH_ADDRESS.pick(); if (result) { $('clientAddress').value = result.address; $('clientAddress').dataset.meta = JSON.stringify(result.meta); } } catch (e) { $('clientNotice').textContent = e.message; } };
+  $('clientAddress').onclick = async () => { if (!clientManager()) return; try { const result = await window.TH_ADDRESS.pick(); if (result) { $('clientAddress').value = result.address; window.TH_DUAL_ADDRESS?.show($('clientAddress'), result.dual); $('clientAddress').dataset.meta = JSON.stringify(result.meta); } } catch (e) { $('clientNotice').textContent = e.message; } };
   $('clientForm').onsubmit = async e => {
     e.preventDefault(); $('clientSave').disabled = true;
     try {
@@ -424,7 +424,7 @@
     $('adminPartner_address').dataset.meta = JSON.stringify(p?.address_meta || {}); $('adminPartnerNotice').textContent = ''; $('adminPartnerDialog').showModal();
   }
   $('adminAddPartner').onclick = () => editPartner(null); $('adminPartnerClose').onclick = () => $('adminPartnerDialog').close();
-  $('adminPartner_address').onclick = async () => { try { const result = await window.TH_ADDRESS.pick(); if (result) { $('adminPartner_address').value = result.address; $('adminPartner_address').dataset.meta = JSON.stringify(result.meta); } } catch (e) { $('adminPartnerNotice').textContent = e.message; } };
+  $('adminPartner_address').onclick = async () => { try { const result = await window.TH_ADDRESS.pick(); if (result) { $('adminPartner_address').value = result.address; window.TH_DUAL_ADDRESS?.show($('adminPartner_address'), result.dual); $('adminPartner_address').dataset.meta = JSON.stringify(result.meta); } } catch (e) { $('adminPartnerNotice').textContent = e.message; } };
   $('adminPartnerForm').onsubmit = async e => {
     e.preventDefault(); $('adminPartnerSave').disabled = true;
     try {

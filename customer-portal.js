@@ -433,7 +433,7 @@
   $('partnerAdd').onclick = () => editPartner(null);
   $('partnerEditorCancel').onclick = () => $('partnerEditor').hidden = true;
   $('partner_address').onclick = async () => {
-    try { const chosen = await window.TH_ADDRESS.pick(); if (!chosen) return; $('partner_address').value = chosen.address; $('partner_address').dataset.meta = JSON.stringify(chosen.meta); }
+    try { const chosen = await window.TH_ADDRESS.pick(); if (!chosen) return; $('partner_address').value = chosen.address; window.TH_DUAL_ADDRESS?.show($('partner_address'), chosen.dual); $('partner_address').dataset.meta = JSON.stringify(chosen.meta); }
     catch (e) { $('partnerError').textContent = e.message; }
   };
   $('partnerEditor').onsubmit = async e => {

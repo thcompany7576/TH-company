@@ -25,7 +25,7 @@
         dialog.showModal(); new kakao.Postcode({ width: '100%', height: '100%', oncomplete(data) {
           const address = data.userSelectedType === 'R' ? data.roadAddress : data.jibunAddress;
           if (!address) return;
-          result = { address, meta: { areaCode: String(data.sigunguCode || data.bcode?.slice(0,5) || ''),
+          result = { address, dual: {roadAddress:data.roadAddress,jibunAddress:data.jibunAddress||data.autoJibunAddress}, meta: { areaCode: String(data.sigunguCode || data.bcode?.slice(0,5) || ''),
             township: /[읍면]$/.test(data.bname1 || '') ? data.bname1 : /[읍면]$/.test(data.bname || '') ? data.bname : '',
             county: /군$/.test(data.sigungu || '') ? 'yes' : 'no' } }; dialog.close();
         }}).embed(holder);
