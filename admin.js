@@ -49,7 +49,7 @@
     window.TH_SOUNDS.init(staff.user_id);
     await window.TH_PUSH.init(staff); await window.TH_HOURS.init(staff);
     $('adminTitle').textContent = 'TH company-' + (owner() ? '관제' : staff.name);
-    $('partnerImportOpen').hidden=!owner();$('ownCardNotice').textContent='';showOwnCard();$('directOrderOpen').hidden=staff.role!=='sales';
+    window.TH_ROUTE_MANAGER?.init(staff);$('partnerImportOpen').hidden=!owner();$('ownCardNotice').textContent='';showOwnCard();$('directOrderOpen').hidden=staff.role!=='sales';
     document.querySelector('[data-page=daily]').hidden=!(representative()||staff.role==='sales');
     status = owner() ? 'approved' : 'pending';
     document.querySelector('[data-page=chat]').hidden = false;document.querySelector('[data-page=chat]').firstChild.textContent=owner()?'고객 문의 모니터링 ':'문의함 ';$('page-chat').querySelector('h2').textContent=owner()?'고객 문의 모니터링':'문의함';$('replyForm').hidden=owner();$('page-chat').querySelector('.portal-note').textContent=owner()?'영업자별 고객 대화를 읽기 전용으로 확인합니다. 답변은 담당 영업자가 보냅니다.':'영업자 링크로 들어온 고객의 주문·문의가 담당 영업자에게 연결됩니다.';
