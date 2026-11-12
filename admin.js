@@ -226,6 +226,7 @@
           if(address){routeLine.append(mapAddress());detailLine.append(mapAddress());}
           const detail=[p.detail,p.person,p.phone].filter(Boolean).join(' · ');if(detail)detailLine.append(document.createTextNode((address?' · ':'')+detail));
           grid.append(routeLine);extra.append(detailLine);
+          if(address)window.TH_CARD_ADDRESSES?.render(routeLine,address);
         }
         card.append(grid);
       }
