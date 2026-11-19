@@ -334,28 +334,31 @@
     if (!root.children.length) root.append(text('p', '등록된 의뢰자가 없습니다.'));
   }
   $('clientSearch').oninput = renderClients;
+  let sharedClientAttempt=null;
+  function sharedClientFields(){const enabled=!currentClient&&$('clientAccountType').value==='shared';$('sharedClientLogin').hidden=!enabled;for(const id of ['sharedClientLoginId','sharedClientPassword']){$(id).required=enabled;$(id).disabled=!enabled;}}
+  $('clientAccountType').onchange=sharedClientFields;
   async function editClient(c) {
-    currentClient = c || null; $('clientId').value = c?.id || ''; $('clientCompany').value = c?.company || ''; $('clientAccountType').value = c?.account_type || 'personal'; $('clientGoods').value = c?.goods_description || '';
+    currentClient = c || null; sharedClientAttempt=null; $('sharedClientLoginId').value=''; $('sharedClientPassword').value=''; $('clientId').value = c?.id || ''; $('clientCompany').value = c?.company || ''; $('clientAccountType').value = c?.account_type || 'personal'; $('clientGoods').value = c?.goods_description || '';
     $('clientAddress').value = c?.address || ''; $('clientAddress').dataset.meta = JSON.stringify(c?.address_meta || {});
     $('clientDetail').value = c?.detail || ''; $('clientStaff').value = c?.staff_id || staffRows.find(s => s.role==='sales')?.user_id || staff.user_id; $('clientActive').checked = c?.active ?? true;
     $('clientDialogTitle').textContent = c ? c.company : '의뢰자 등록'; $('clientNotice').textContent = '';
     $('clientAccounts').hidden = !c; $('clientSave').hidden = !clientManager(); $('clientDelete').hidden = !clientManager() || !c;
     for (const input of $('clientForm').querySelectorAll('input,select')) input.disabled = !clientManager();
-    $('clientStaff').disabled = !(representative() || owner());
+    $('clientStaff').disabled = !(representative() || owner()); sharedClientFields();
     if (!$('clientDialog').open) $('clientDialog').showModal();
     if(c&&staff.role==='sales')try{await window.TH_CONTRACT.clientRules(c.id,$('contractClientRules'));}catch(e){$('contractClientRules').textContent=e.message;}$('contractClientPanel').hidden=!c||staff.role!=='sales';
     if (c) try { await loadClientAccounts(); } catch (e) { $('clientNotice').textContent = e.message; }
   }
-  $('newClient').onclick = () => editClient(null); $('clientClose').onclick = () => $('clientDialog').close();
+  $('newClient').onclick = () => editClient(null); $('clientClose').onclick = () => { $('sharedClientPassword').value=''; $('clientDialog').close(); };
   $('clientAddress').onclick = async () => { if (!clientManager()) return; try { const result = await window.TH_ADDRESS.pick(); if (result) { $('clientAddress').value = result.address; window.TH_DUAL_ADDRESS?.show($('clientAddress'), result.dual); $('clientAddress').dataset.meta = JSON.stringify(result.meta); } } catch (e) { $('clientNotice').textContent = e.message; } };
   $('clientForm').onsubmit = async e => {
     e.preventDefault(); $('clientSave').disabled = true;
     try {
       const data = { account_type: $('clientAccountType').value, company: $('clientCompany').value.trim(), goods_description: $('clientGoods').value.trim(), address: $('clientAddress').value, detail: $('clientDetail').value.trim(), staff_id: $('clientStaff').value, active: $('clientActive').checked, address_meta: JSON.parse($('clientAddress').dataset.meta || '{}') };
       const id = $('clientId').value;
-      const saved = await api.api('/rest/v1/th6_clients' + (id ? '?id=eq.' + id : ''), { method: id ? 'PATCH' : 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(data) });
+      let saved;const createShared=!id&&data.account_type==='shared';if(createShared){if(!sharedClientAttempt)sharedClientAttempt=crypto.randomUUID();const result=await accountAction({action:'createSharedClient',clientId:sharedClientAttempt,values:data,loginId:$('sharedClientLoginId').value.trim(),password:$('sharedClientPassword').value});saved=[result.client];}else saved = await api.api('/rest/v1/th6_clients' + (id ? '?id=eq.' + id : ''), { method: id ? 'PATCH' : 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(data) });
       if (saved?.length !== 1) throw Error('저장 결과를 확인하지 못했습니다.');
-      await loadClients(); await editClient(saved[0]); $('clientNotice').textContent = '의뢰자를 저장했습니다. 아래에서 로그인 계정을 등록해 주세요.';
+      await loadClients(); await editClient(saved[0]); $('clientNotice').textContent = createShared ? '회사 공용 의뢰자와 로그인 계정을 함께 등록했습니다.' : '의뢰자를 저장했습니다. 아래에서 로그인 계정을 등록해 주세요.';
     } catch (e) { $('clientNotice').textContent = e.message; }
     finally { $('clientSave').disabled = false; }
   };
@@ -374,7 +377,7 @@
     ]);
     const root = $('contactList'); root.replaceChildren();
     for (const c of contacts) {
-      const card = text('div', '', 'contact-card'); card.append(text('strong', c.name), text('p', c.phone + ' · 아이디: ' + c.login_id + ' · ' + (c.active ? '활성' : '비활성')));
+      const card = text('div', '', 'contact-card'); card.append(text('strong', currentClient.account_type==='shared'?'회사 공용':c.name), text('p', (currentClient.account_type==='shared'?'':c.phone + ' · ') + '아이디: ' + c.login_id + ' · ' + (c.active ? '활성' : '비활성')));
       if (clientManager()) {
         const actions = text('div', '', 'actions'); actions.append(button('수정', () => editContact(c)), button('비밀번호 재설정', () => { resetContact = c.id; $('resetPassword').value = ''; $('resetNotice').textContent = ''; $('resetDialog').showModal(); }), button('삭제', async () => {
           if (!confirm(c.name + ' 계정을 삭제할까요?')) return;
@@ -399,13 +402,13 @@
     $('contactId').value = c?.id || ''; $('contactName').value = c?.name || ''; $('contactPhone').value = c?.phone || '';
     $('contactLogin').value = c?.login_id || ''; $('contactLogin').disabled = Boolean(c); $('contactPassword').value = '';
     $('contactPassword').required = !c; $('accountPasswordLabel').hidden = Boolean(c); $('contactActive').checked = c?.active ?? true;
-    $('accountTitle').textContent = c ? '계정 정보 수정' : '계정 등록'; $('accountNotice').textContent = ''; $('accountDialog').showModal();
+    const shared=currentClient.account_type==='shared';for(const id of ['contactName','contactPhone']){$(id).closest('label').hidden=shared;$(id).required=!shared;} $('accountTitle').textContent = c ? '계정 정보 수정' : '계정 등록'; $('accountNotice').textContent = ''; $('accountDialog').showModal();
   }
   $('addAccount').onclick = () => editContact(null); $('accountClose').onclick = () => { $('contactPassword').value = ''; $('accountDialog').close(); };
   $('accountForm').onsubmit = async e => {
     e.preventDefault(); $('accountSave').disabled = true;
     try {
-      const id = $('contactId').value, values = { name: $('contactName').value.trim(), phone: $('contactPhone').value.trim(), active: $('contactActive').checked };
+      const id = $('contactId').value, values = { name: currentClient.account_type==='shared'?'':$('contactName').value.trim(), phone: currentClient.account_type==='shared'?'':$('contactPhone').value.trim(), active: $('contactActive').checked };
       if (id) await api.api('/rest/v1/th6_contacts?id=eq.' + id, { method: 'PATCH', body: JSON.stringify(values) });
       else {
         const result = await accountAction({ action: 'create', clientId: currentClient.id, loginId: $('contactLogin').value.trim(), password: $('contactPassword').value, name: values.name, phone: values.phone });

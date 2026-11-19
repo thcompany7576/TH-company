@@ -16,7 +16,7 @@
  api.restore=()=>ready||(ready=(async()=>{await baseRestore();if(!api.session)throw Error('관리페이지에 로그인해 주세요.');actorStaff=(await baseApi('/rest/v1/th6_staff?select=*&user_id=eq.'+api.session.user.id))[0];if(!actorStaff?.active||!['sales','owner'].includes(actorStaff.role))throw Error('직접 접수 권한이 없습니다.');
  control=actorStaff.role==='owner';staff=actorStaff;let clients;
  if(control){
-  section.querySelector('h2').textContent='관제 직접 접수';$('directSalesLabel').hidden=false;$('directClient').disabled=true;$('directGuest').hidden=true;
+  section.querySelector('h2').textContent='관제 직접 접수';$('directSalesLabel').hidden=false;$('directClient').disabled=true;$('directGuest').hidden=c.account_type!=='shared';
   $('directSales').onchange=()=>navigate(null,null,$('directSales').value);
   context=await baseRpc('th6_control_context',{p_staff:params.get('staff')||null,p_client:params.get('client')||null});
   for(const sales of context.sales){const opt=document.createElement('option');opt.value=sales.user_id;opt.textContent=sales.name;$('directSales').append(opt);}
@@ -26,7 +26,7 @@
  }else{clients=await baseApi('/rest/v1/th6_clients?select=*&active=eq.true&staff_id=eq.'+staff.user_id+'&order=company.asc');}
  for(const c of clients){const opt=document.createElement('option');opt.value=c.id;opt.textContent=c.company;$('directClient').append(opt);}
  const client=params.get('client');if(client){const c=clients.find(c=>c.id===client);if(!c)throw Error('담당하는 활성 의뢰자를 선택해 주세요.');const contacts=control?context.contacts:await baseApi('/rest/v1/th6_contacts?select=*&active=eq.true&client_id=eq.'+client+'&order=name.asc');if(!contacts.length)throw Error('이 의뢰자의 활성 회원 계정을 먼저 등록해 주세요.');const who=contacts.find(x=>x.id===params.get('contact'))||(!params.has('contact')?contacts[0]:null);if(!who)throw Error('의뢰자 담당자를 다시 선택해 주세요.');
- profile={clientId:c.id,contactId:who.id,company:c.company,name:who.name,phone:who.phone,address:c.address,detail:c.detail,addressMeta:c.address_meta,goodsDescription:c.goods_description||'',sales:{name:staff.name,slug:staff.link_slug}};$('directClient').value=client;$('directGuest').hidden=true;$('directContactLabel').hidden=false;for(const x of contacts){const opt=document.createElement('option');opt.value=x.id;opt.textContent=x.name+' · '+x.phone;$('directContact').append(opt);}$('directContact').value=who.id;}
+ profile={accountType:c.account_type,clientId:c.id,contactId:who.id,company:c.company,name:who.name,phone:who.phone,address:c.address,detail:c.detail,addressMeta:c.address_meta,goodsDescription:c.goods_description||'',sales:{name:staff.name,slug:staff.link_slug}};$('directClient').value=client;$('directGuest').hidden=c.account_type!=='shared';$('directContactLabel').hidden=false;for(const x of contacts){const opt=document.createElement('option');opt.value=x.id;opt.textContent=c.account_type==='shared'?'회사 공용':x.name+' · '+x.phone;$('directContact').append(opt);}$('directContact').value=who.id;}
  $('controlPartnerEdit').hidden=!(control&&profile);$('controlPartnerEdit').onclick=()=>$('partnerManagerButton').click();
  $('directClient').onchange=()=>navigate($('directClient').value,null);$('directContact').onchange=()=>navigate(profile.clientId,$('directContact').value);$('salesRoute').textContent=staff.name+(control?' 영업자 담당 · 관제 직접 접수':' 영업자 직접 접수');return api.session;
  })().catch(e=>{$('directError').textContent=e.message;$('portalContent').hidden=true;throw e;}));
@@ -44,6 +44,6 @@
  }
  return baseRpc(name,args);
  };
- window.TH_DIRECT={get control(){return control;},get staff(){return staff;},person:()=>profile?{name:profile.name,phone:profile.phone}:{name:$('directName').value.trim(),phone:$('directPhone').value.trim()}};
+ window.TH_DIRECT={get control(){return control;},get staff(){return staff;},person:()=>profile&&profile.accountType!=='shared'?{name:profile.name,phone:profile.phone}:{name:$('directName').value.trim(),phone:$('directPhone').value.trim()}};
  $('newOrder').addEventListener('click',()=>location.reload());
 })();
