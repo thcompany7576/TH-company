@@ -328,7 +328,7 @@
     const root = $('clientList'); root.replaceChildren(); const q = $('clientSearch').value.toLowerCase();
     for (const c of clients.filter(c => c.company.toLowerCase().includes(q))) {
       const card = text('article', '', 'client-card'); card.append(text('h3', c.company), text('p', (c.address + ' ' + c.detail).trim() || '등록 주소 없음'), text('p', (c.active ? '활성화' : '비활성화') + ' · 담당: ' + (staffRows.find(s => s.user_id === c.staff_id)?.name || '담당 영업자'), 'portal-note'));
-      card.append(text('p', (c.requester_required?'주문 담당자 별도 입력':'출발지 연락처 사용')+' · 취급 물품: '+(c.goods_description || '미등록'), 'portal-note'));
+      card.append(text('p', '주문 담당자 필수 입력'+' · 취급 물품: '+(c.goods_description || '미등록'), 'portal-note'));
       card.append(button(clientManager() ? '의뢰자 · 계정 · 거래처 관리' : '등록 정보 · 거래처 확인', () => editClient(c))); root.append(card);
     }
     if (!root.children.length) root.append(text('p', '등록된 의뢰자가 없습니다.'));
@@ -338,7 +338,7 @@
   function sharedClientFields(){const enabled=!currentClient&&$('clientAccountType').value==='shared';$('sharedClientLogin').hidden=!enabled;for(const id of ['sharedClientLoginId','sharedClientPassword']){$(id).required=enabled;$(id).disabled=!enabled;}}
   $('clientAccountType').onchange=sharedClientFields;
   async function editClient(c) {
-    currentClient = c || null; sharedClientAttempt=null; $('sharedClientLoginId').value=''; $('sharedClientPassword').value=''; $('clientId').value = c?.id || ''; $('clientCompany').value = c?.company || ''; $('clientAccountType').value = 'shared'; $('clientRequesterRequired').checked = c?.requester_required === true; $('clientGoods').value = c?.goods_description || '';
+    currentClient = c || null; sharedClientAttempt=null; $('sharedClientLoginId').value=''; $('sharedClientPassword').value=''; $('clientId').value = c?.id || ''; $('clientCompany').value = c?.company || ''; $('clientAccountType').value = 'shared'; $('clientGoods').value = c?.goods_description || '';
     $('clientAddress').value = c?.address || ''; $('clientAddress').dataset.meta = JSON.stringify(c?.address_meta || {});
     $('clientDetail').value = c?.detail || ''; $('clientStaff').value = c?.staff_id || staffRows.find(s => s.role==='sales')?.user_id || staff.user_id; $('clientActive').checked = c?.active ?? true;
     $('clientDialogTitle').textContent = c ? c.company : '의뢰자 등록'; $('clientNotice').textContent = '';
@@ -354,7 +354,7 @@
   $('clientForm').onsubmit = async e => {
     e.preventDefault(); $('clientSave').disabled = true;
     try {
-      const data = { account_type: 'shared', requester_required: $('clientRequesterRequired').checked, company: $('clientCompany').value.trim(), goods_description: $('clientGoods').value.trim(), address: $('clientAddress').value, detail: $('clientDetail').value.trim(), staff_id: $('clientStaff').value, active: $('clientActive').checked, address_meta: JSON.parse($('clientAddress').dataset.meta || '{}') };
+      const data = { account_type: 'shared', requester_required: true, company: $('clientCompany').value.trim(), goods_description: $('clientGoods').value.trim(), address: $('clientAddress').value, detail: $('clientDetail').value.trim(), staff_id: $('clientStaff').value, active: $('clientActive').checked, address_meta: JSON.parse($('clientAddress').dataset.meta || '{}') };
       const id = $('clientId').value;
       let saved;const createShared=!id&&data.account_type==='shared';if(createShared){if(!sharedClientAttempt)sharedClientAttempt=crypto.randomUUID();const result=await accountAction({action:'createSharedClient',clientId:sharedClientAttempt,values:data,loginId:$('sharedClientLoginId').value.trim(),password:$('sharedClientPassword').value});saved=[result.client];}else saved = await api.api('/rest/v1/th6_clients' + (id ? '?id=eq.' + id : ''), { method: id ? 'PATCH' : 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(data) });
       if (saved?.length !== 1) throw Error('저장 결과를 확인하지 못했습니다.');

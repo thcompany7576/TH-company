@@ -167,7 +167,7 @@
     renderThreadSelector();await refreshInbox();
   }
   function sharedIdentityFields() {
-    const shared=Boolean(!window.TH_DIRECT_MODE&&profile?.requesterRequired);
+    const shared=Boolean(!window.TH_DIRECT_MODE&&profile);
     $('sharedRequester').hidden=!shared;
     $('sharedRequesterName').required=shared;
     $('sharedRequesterPhone').required=shared;
@@ -176,7 +176,7 @@
   const requesterSuggestions=[];
   function refreshRequesterSuggestions() {
     const direct=Boolean(window.TH_DIRECT_MODE);
-    const enabled=Boolean(profile?.requesterRequired);
+    const enabled=Boolean(profile);
     const name=$(direct?'directName':'sharedRequesterName')?.value.trim()||'';
     const phone=$(direct?'directPhone':'sharedRequesterPhone')?.value.trim()||'';
     for(const side of ['sender','receiver']) {
@@ -194,7 +194,7 @@
         form.elements[side].closest('.grid').after(button);
         entry={side,button};requesterSuggestions.push(entry);
         button.onclick=()=>{
-          if(!profile?.requesterRequired)return;
+          if(!profile)return;
           const sourceName=$(window.TH_DIRECT_MODE?'directName':'sharedRequesterName').value.trim();
           const sourcePhone=$(window.TH_DIRECT_MODE?'directPhone':'sharedRequesterPhone').value.trim();
           if(!sourceName||!sourcePhone)return;
@@ -218,12 +218,10 @@
   form.addEventListener('reset',()=>queueMicrotask(refreshRequesterSuggestions));
   function person(forOrder = false) {
     if(window.TH_DIRECT_MODE)return window.TH_DIRECT.person();
-    if (profile && (profile.accountType==='shared' || profile.requesterRequired)) {
+    if (profile) {
       if(!forOrder&&thread?.orderId)return {name:thread.name,phone:thread.phone};
-      if(profile.requesterRequired)return {name:$('sharedRequesterName').value.trim(),phone:$('sharedRequesterPhone').value.trim()};
-      return {name:form.elements.sender.value.trim()||'고객',phone:form.elements.senderPhone.value.trim()};
+      return {name:$('sharedRequesterName').value.trim(),phone:$('sharedRequesterPhone').value.trim()};
     }
-    if (profile) return { name: profile.name, phone: profile.phone };
     if(!forOrder&&thread?.orderId)return {name:thread.name,phone:thread.phone};
     const sender = { name: form.elements.sender.value.trim(), phone: form.elements.senderPhone.value.trim() };
     return forOrder ? sender : {
@@ -561,7 +559,7 @@
     try {
       if (!mode) throw Error('주문 화면을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
       requireMember();
-      if (profile) { const fresh = await api.rpc('th6_profile'); if (!fresh) throw Error('계정이 비활성화되었습니다. 사무실에 문의해 주세요.'); profile = fresh; sharedIdentityFields(); if(profile.requesterRequired){const who=person(true);if(!who.name||who.name.length>60||! /^[0-9-]{9,14}$/.test(who.phone))throw Error('이번 주문 담당자명과 연락처를 입력해 주세요.');} }
+      if (profile) { const fresh = await api.rpc('th6_profile'); if (!fresh) throw Error('계정이 비활성화되었습니다. 사무실에 문의해 주세요.'); profile = fresh; sharedIdentityFields(); {const who=person(true);if(!who.name||who.name.length>60||! /^[0-9-]{9,14}$/.test(who.phone))throw Error('이번 주문 담당자명과 연락처를 입력해 주세요.');} }
       await refreshSettings();if(profile)await window.TH_CONTRACT.load(profile.clientId); originalSubmit(e);
       if (!$('review').hidden) {
         const who = person(true); if (profile) $('summary').textContent = '[의뢰자] ' + profile.company + ' / ' + who.name + ' / ' + who.phone + '\n\n' + $('summary').textContent;
