@@ -88,6 +88,7 @@
     } catch { clear(); }
     return session;
   }
-  window.TH_API = { api, rpc, login, logout, restore, configured, get session() { return session; } };
+  async function clientEmail(value){const id=String(value||'').normalize('NFC').trim().toLowerCase();if(!/^[a-z0-9_가-힣]{2,32}$/.test(id))throw Error('아이디는 한글·영문·숫자·밑줄 2~32자로 입력해 주세요.');if(/^[a-z0-9_]+$/.test(id))return id+'@login.th-company.invalid';const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(id));return 'u'+Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('').slice(0,60)+'@login.th-company.invalid';}
+  window.TH_API = { clientEmail, api, rpc, login, logout, restore, configured, get session() { return session; } };
   window.addEventListener('storage', e => { if (!separateWindows && e.key === storageKey && e.newValue === null) clear(); });
 })();

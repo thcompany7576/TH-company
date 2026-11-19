@@ -8,17 +8,17 @@
  function attach(select){
   if(select.dataset.searchBound)return;select.dataset.searchBound='1';
   const oldLabel=select.closest('label'),wrap=document.createElement('div');wrap.className='partner-search';
-  const input=document.createElement('input');input.type='search';input.autocomplete='off';input.placeholder='거래처 이름 검색';input.setAttribute('role','combobox');input.setAttribute('aria-autocomplete','list');input.setAttribute('aria-expanded','false');input.setAttribute('aria-label',(select.getAttribute('aria-label')||'거래처 선택').replace('선택','검색'));
+  const input=document.createElement('input');input.type='search';input.autocomplete='off';input.maxLength=100;input.placeholder='거래처명 입력·검색';input.setAttribute('role','combobox');input.setAttribute('aria-autocomplete','list');input.setAttribute('aria-expanded','false');input.setAttribute('aria-label',(select.getAttribute('aria-label')||'거래처 선택').replace('선택','검색'));
   const list=document.createElement('div');list.className='partner-results';list.id='partner-search-'+(++serial);list.setAttribute('role','listbox');list.hidden=true;input.setAttribute('aria-controls',list.id);wrap.append(input,list);(oldLabel||select).after(wrap);select.hidden=true;if(oldLabel)oldLabel.hidden=true;
   let choices=[],active=-1;
   const close=()=>{list.hidden=true;input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');active=-1;};
-  const update=()=>{if(oldLabel)oldLabel.hidden=true;wrap.hidden=select.options.length<2;input.disabled=select.disabled;const option=[...select.options].find(o=>o.value===select.value);input.value=option?.value?option.textContent:'';close();};
+  const update=()=>{if(oldLabel)oldLabel.hidden=true;wrap.hidden=false;input.disabled=select.disabled;const option=[...select.options].find(o=>o.value===select.value);input.value=option?.value?option.textContent:'';close();};
   const pick=option=>{select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));input.value=option.textContent;close();input.focus();};
   function render(){
    list.replaceChildren();active=-1;input.removeAttribute('aria-activedescendant');const query=normalize(input.value);if(!query){close();return;}
    const matches=[...select.options].filter(o=>o.value&&!o.disabled&&normalize(o.textContent).includes(query));choices=matches.slice(0,8);
    for(const [index,option] of choices.entries()){const button=document.createElement('button');button.type='button';button.id=list.id+'-'+index;button.setAttribute('role','option');button.setAttribute('aria-selected','false');button.textContent=option.textContent;if(option.dataset.address){const small=document.createElement('small');small.textContent=option.dataset.address;button.append(small);}button.onmousedown=e=>e.preventDefault();button.onclick=()=>pick(option);list.append(button);}
-   if(!matches.length||matches.length>8){const note=document.createElement('p');note.textContent=matches.length?'검색어를 더 입력하면 범위를 줄일 수 있습니다.':'일치하는 거래처가 없습니다.';list.append(note);}
+   if(!matches.length||matches.length>8){const note=document.createElement('p');note.textContent=matches.length?'검색어를 더 입력하면 범위를 줄일 수 있습니다.':'새 거래처입니다. 주문 접수 후 자동 등록됩니다.';list.append(note);}
    list.hidden=false;input.setAttribute('aria-expanded','true');
   }
   input.addEventListener('input',()=>{select.value='';render();});input.addEventListener('focus',()=>{if(input.value)render();});input.addEventListener('blur',()=>setTimeout(close,150));

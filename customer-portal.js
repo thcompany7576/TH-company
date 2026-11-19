@@ -162,7 +162,7 @@
       $('profilePhone').textContent = profile.phone; $('profileAddress').textContent = (profile.address + ' ' + profile.detail).trim() || '등록 주소 없음';
       await loadPartners();
     }
-    document.querySelectorAll('.partner-tools').forEach(el => el.hidden = !profile);
+    document.querySelectorAll('.partner-tools').forEach(el => el.hidden = !profile && !window.TH_DIRECT_MODE);
     thread = savedThreads().find(t => t.account === (profile?.contactId || 'guest:' + sales)) || null;
     renderThreadSelector();await refreshInbox();
   }
@@ -330,9 +330,8 @@
   $('customerLogin').onsubmit = async e => {
     e.preventDefault(); $('customerLoginButton').disabled = true; $('entryError').textContent = '';
     try {
-      const id = $('loginId').value.trim().toLowerCase();
-      if (!/^[a-z0-9_]{4,32}$/.test(id)) throw Error('사무실에서 안내받은 아이디를 입력해 주세요.');
-      await api.login(id + '@login.th-company.invalid', $('loginPassword').value, $('customerRemember').checked);
+      const email = await api.clientEmail($('loginId').value);
+      await api.login(email, $('loginPassword').value, $('customerRemember').checked);
       profile = await api.rpc('th6_profile');
       if (!profile) { await api.logout(); throw Error('사용 가능한 등록 고객 계정이 아닙니다. 사무실에 문의해 주세요.'); }
       $('loginPassword').value = ''; await enter('member');
@@ -414,7 +413,7 @@
   function addressMeta(input) { return Object.fromEntries(['areaCode', 'township', 'county'].map(k => [k, input.dataset[k] || ''])); }
   function renderPartners() {
     for(const el of document.querySelectorAll('[data-save-partner]'))el.hidden=!window.TH_DIRECT_MODE;
-    $('partner_person').closest('label').hidden=true;
+    $('partner_person').closest('label').hidden=false;
     const root = $('partnerList'); root.replaceChildren();$('partnerAdd').hidden=!window.TH_DIRECT_MODE;
     for (const p of partners) {
       const card = text('div', '', 'partner-card'); card.append(text('strong', p.title), text('p', p.address + ' ' + p.detail), text('p', p.person + ' · ' + p.phone));
@@ -483,7 +482,7 @@
     if(targetForm===form){for(const id of ['paymentMethod','splitPair','splitRatio'])values[id]=$(id).value;values.splitPayment=$('splitPayment').checked?'on':'';}
     return { contract:targetForm===form?window.TH_CONTRACT.data():null,service: values.serviceType || '일반 배송', fields: values, nightEnabled: window.TH_PORTAL.nightEnabled, nightRate: window.TH_PORTAL.nightRate, rainEnabled: window.TH_PORTAL.rainEnabled, rainRate: window.TH_PORTAL.rainEnabled?0.2:0,
       quote: targetForm === form ? window.TH_FARE.quote(window.TH_MAP.getDistance()) : null,
-      locations: targetForm === form ? window.TH_ORDER.routeLocations().map(p => ({ label: p.label, businessName: p.businessName||'', address: p.address.value, detail: p.detail.value, person: p.person.value, phone: p.phone.value })) : [] };
+      locations: targetForm === form ? window.TH_ORDER.routeLocations().map(p => ({ label: p.label, businessName: p.businessName||'', address_meta: addressMeta(p.address), address: p.address.value, detail: p.detail.value, person: p.person.value, phone: p.phone.value })) : [] };
   }
   async function submit(targetForm, summaryText, targetDoc) {
     const button = targetDoc.getElementById('sms'), edit = targetDoc.getElementById('edit'), message = targetDoc.getElementById('message');
@@ -499,7 +498,7 @@
       message.textContent = '주문을 접수하고 있습니다…';
       const result = await api.rpc('th6_submit_request', { p_id: orderAttempt.id, p_thread: t.id, p_token: t.token, p_summary: orderAttempt.summary, p_payload: orderAttempt.payload });
       if(profile?.accountType==='shared'){$('sharedRequesterName').value='';$('sharedRequesterPhone').value='';}
-      t.orderId = result.id;t.orderNumber=result.orderNumber; thread = t; rememberThread(); orderAttempt = null;await refreshInbox();
+      t.orderId = result.id;t.orderNumber=result.orderNumber; thread = t; rememberThread(); orderAttempt = null;await refreshInbox();if(profile)await loadPartners().catch(()=>{});
       message.textContent = '주문 요청이 접수되었습니다. 주문번호: ' + orderNumber(result) + ' · 이용 문의사항에서 답변과 배정 알림을 확인해 주세요.';
       button.textContent = '접수 완료'; targetDoc.getElementById('newOrder').hidden = false;
     } catch (e) {
