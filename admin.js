@@ -15,7 +15,8 @@
   const orderNumber=r=>String(r.order_number||'확인 중');
   const owner = () => staff?.role === 'owner';
   const representative = () => Boolean(staff?.is_representative);
-  const clientManager = () => representative() || staff?.role === 'sales';
+  const clientManager = () => representative() || staff?.role === 'sales' || owner();
+  const clientRegistrar = () => clientManager() || owner();
   const koreaTime = value => new Date(value).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
   async function accountAction(args) { return api.api('/functions/v1/manage-client-account', { method: 'POST', body: JSON.stringify(args) }); }
   let qrLoader;
@@ -59,10 +60,10 @@
     $('login').hidden = true; $('dashboard').hidden = false; $('logout').hidden = false;
     document.querySelectorAll('[data-owner-only]').forEach(e => e.hidden = !owner());
     document.querySelectorAll('[data-representative-only]').forEach(e => e.hidden = !representative());
-    document.querySelector('[data-page=clients]').hidden = !clientManager();
+    document.querySelector('[data-page=clients]').hidden = !clientRegistrar();
     document.querySelector('[data-page=fares]').hidden = staff.role !== 'sales';
     if(staff.role!=='sales'&&page==='fares')await selectPage('orders');
-    document.querySelectorAll('[data-client-manager-only]').forEach(e => e.hidden = !clientManager());
+    document.querySelectorAll('[data-client-manager-only]').forEach(e => e.hidden = !clientRegistrar());
     await window.TH_DISPATCH.init(staff,async()=>{notice('새 영업자·관제 메시지가 도착했습니다.');await beep();});
     await loadStaff(); await loadOrders(true); await loadThreads(); baseline = false; pollCursor = null; seenOrders.clear(); seenThreads.clear(); await poll();
     const target=new URLSearchParams(location.search);
@@ -340,7 +341,7 @@
     $('clientDialogTitle').textContent = c ? c.company : '의뢰자 등록'; $('clientNotice').textContent = '';
     $('clientAccounts').hidden = !c; $('clientSave').hidden = !clientManager(); $('clientDelete').hidden = !clientManager() || !c;
     for (const input of $('clientForm').querySelectorAll('input,select')) input.disabled = !clientManager();
-    $('clientStaff').disabled = !representative();
+    $('clientStaff').disabled = !(representative() || owner());
     if (!$('clientDialog').open) $('clientDialog').showModal();
     if(c&&staff.role==='sales')try{await window.TH_CONTRACT.clientRules(c.id,$('contractClientRules'));}catch(e){$('contractClientRules').textContent=e.message;}$('contractClientPanel').hidden=!c||staff.role!=='sales';
     if (c) try { await loadClientAccounts(); } catch (e) { $('clientNotice').textContent = e.message; }
