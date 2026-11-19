@@ -126,7 +126,7 @@
     orderAttempt=null;pendingMessage=null;
     if (memberApp) {
       mode=null;
-      $('portalContent').hidden=true;$('accountActions').hidden=true;$('memberInstall').hidden=true;
+      $('portalContent').hidden=true;$('accountActions').hidden=true;
       $('chatOpen').hidden=true;$('soundChoose').hidden=true;$('portalEntry').hidden=false;
       return;
     }
@@ -148,7 +148,7 @@
     updateReservationContact(profile ? profile.sales : guestReservationContact);
     await refreshSettings(); mode = nextMode;inbox=[];inboxBaseline=false;chatDrafts.clear();$('chatBody').value='';loginDialog.close();paymentChoices();memberGoods();
     const agencyDoc=$('agencyFrame').contentDocument;if(agencyDoc?.getElementById('order'))paymentChoices(agencyDoc.getElementById('order'),agencyDoc);
-    $('memberInstall').hidden=!profile;$('memberLoginOpen').hidden=Boolean(profile);
+    $('memberLoginOpen').hidden=Boolean(profile);
     $('chatOpen').hidden=false;$('soundChoose').hidden=false;
     window.TH_SOUNDS.init(profile?.contactId||'customer-device');
     $('portalEntry').hidden = true; $('portalContent').hidden = false;
