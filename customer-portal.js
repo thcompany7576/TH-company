@@ -173,49 +173,37 @@
     $('sharedRequesterPhone').required=shared;
     refreshRequesterSuggestions();
   }
-  const requesterSuggestions=[];
+  const contactValue=input=>input?.value.trim()||input?.dataset.requesterExample||'';
+  window.TH_ORDER.contactValue=contactValue;
   function refreshRequesterSuggestions() {
-    const direct=Boolean(window.TH_DIRECT_MODE);
-    const enabled=Boolean(profile);
-    const name=$(direct?'directName':'sharedRequesterName')?.value.trim()||'';
-    const phone=$(direct?'directPhone':'sharedRequesterPhone')?.value.trim()||'';
-    for(const side of ['sender','receiver']) {
-      for(const [field,value] of [[side,name],[side+'Phone',phone]]){
-        const input=form.elements[field];
-        if(!input.disabled&&(!input.value||input.dataset.requesterDefault===input.value)){
-          input.value=enabled?value:'';
-          input.dataset.requesterDefault=input.value;
-        }
+    const requester=profile?person(true):{name:'',phone:''};
+    for(const nameInput of form.querySelectorAll('[name=sender],[name=receiver],[data-extra-person]')){
+      const phoneInput=nameInput.closest('.grid').querySelector('[data-phone]');
+      if(nameInput.dataset.requesterEligible===undefined)nameInput.dataset.requesterEligible=nameInput.hasAttribute('data-extra-person')?'0':'1';
+      const enabled=Boolean(profile&&nameInput.dataset.requesterEligible==='1');
+      for(const [input,value] of [[nameInput,requester.name],[phoneInput,requester.phone]]){
+        if(input.dataset.basePlaceholder===undefined)input.dataset.basePlaceholder=input.getAttribute('placeholder')||'';
+        const example=enabled?value:'';
+        input.dataset.requesterExample=example;
+        input.placeholder=example||input.dataset.basePlaceholder;
       }
-      let entry=requesterSuggestions.find(x=>x.side===side);
-      if(!entry){
-        const button=text('button','','secondary');button.type='button';button.dataset.requesterSuggestion=side;
-        button.style.cssText='font-size:13px;padding:8px 12px;min-height:36px;margin:4px 0 10px;white-space:normal';
-        form.elements[side].closest('.grid').after(button);
-        entry={side,button};requesterSuggestions.push(entry);
-        button.onclick=()=>{
-          if(!profile)return;
-          const sourceName=$(window.TH_DIRECT_MODE?'directName':'sharedRequesterName').value.trim();
-          const sourcePhone=$(window.TH_DIRECT_MODE?'directPhone':'sharedRequesterPhone').value.trim();
-          if(!sourceName||!sourcePhone)return;
-          for(const [field,value] of [[side,sourceName],[side+'Phone',sourcePhone]]){
-            const input=form.elements[field];if(input.disabled)continue;
-            input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));input.dataset.requesterDefault=input.value;
-          }
-        };
-      }
-      entry.button.hidden=!enabled||!name||!phone;
-      entry.button.textContent='담당자 사용: '+name+' · '+phone;
+      const fallback=phoneInput.dataset.requesterExample;
+      phoneInput.required=!/^[0-9-]{9,14}$/.test(fallback||'');
+      if(!phoneInput.value.trim()&&fallback)phoneInput.setCustomValidity('');
     }
   }
   document.addEventListener('input',event=>{
-    if(['sharedRequesterName','sharedRequesterPhone','directName','directPhone'].includes(event.target.id))refreshRequesterSuggestions();
-    if(['sender','senderPhone','receiver','receiverPhone'].includes(event.target.name))delete event.target.dataset.requesterDefault;
+    if(['sharedRequesterName','sharedRequesterPhone','directName','directPhone'].includes(event.target.id)||event.target.matches('[name=sender],[name=receiver],[name=senderPhone],[name=receiverPhone],[data-extra-person],[data-phone]'))refreshRequesterSuggestions();
   });
-  form.addEventListener('focusout',event=>{
-    if(['sender','senderPhone','receiver','receiverPhone'].includes(event.target.name)&&!event.target.value.trim())refreshRequesterSuggestions();
+  form.addEventListener('formdata',event=>{
+    for(const input of form.querySelectorAll('[name=sender],[name=receiver],[name=senderPhone],[name=receiverPhone]')){
+      if(!input.disabled&&event.formData.has(input.name))event.formData.set(input.name,contactValue(input));
+    }
   });
-  form.addEventListener('reset',()=>queueMicrotask(refreshRequesterSuggestions));
+  form.addEventListener('reset',()=>queueMicrotask(()=>{
+    for(const input of form.querySelectorAll('[name=sender],[name=receiver],[data-extra-person]'))delete input.dataset.requesterEligible;
+    refreshRequesterSuggestions();
+  }));
   function person(forOrder = false) {
     if(window.TH_DIRECT_MODE)return window.TH_DIRECT.person();
     if (profile) {
@@ -391,16 +379,33 @@
   $('customerLogout').onclick = async () => {
     await api.logout(); location.reload();
   };
+  function fillPartnerContact(nameInput,phoneInput,location) {
+    const key=value=>String(value||'').normalize('NFKC').toLocaleLowerCase('ko').replace(/\s+/g,'');
+    const ownCompany=Boolean(profile&&key(location.title||location.company)&&key(location.title||location.company)===key(profile.company)&&key(location.address)===key(profile.address));
+    nameInput.dataset.requesterEligible=ownCompany?'1':'0';
+    for(const [input,value] of [[nameInput,location.person||location.name||''],[phoneInput,location.phone||'']]) {
+      if(ownCompany){
+        if(input.dataset.partnerContact===input.value)input.value='';
+        delete input.dataset.partnerContact;
+      }else{
+        input.value=value;input.dataset.partnerContact=input.value;
+      }
+    }
+    phoneInput.setCustomValidity('');
+    refreshRequesterSuggestions();
+  }
+
   function extraPartnerChoice(box) {
     let wrap=box.querySelector('[data-extra-partner-wrap]');
     if(!wrap){wrap=document.createElement('label');wrap.dataset.extraPartnerWrap='';wrap.append(text('span','거래처 선택'));const select=document.createElement('select');select.dataset.extraPartner='';select.setAttribute('aria-label','경유지 거래처 선택');wrap.append(select);box.querySelector('legend').after(wrap);}
+    refreshRequesterSuggestions();
     wrap.hidden=!profile;const select=wrap.querySelector('select'),value=select.value;select.replaceChildren(new Option('저장한 거래처 선택',''));
     for(const p of partners){const opt=new Option(p.title,p.id);opt.dataset.address=p.address+' '+(p.detail||'');select.append(opt);}select.value=value;
     function apply(location){
       const address=box.querySelector('[data-searched-address]');address.value=location.address;
       for(const key of ['selectedAddress','areaCode','township','county','businessName','businessAddress','businessDetail'])delete address.dataset[key];
       Object.assign(address.dataset,location.address_meta||location.addressMeta||{});address.dataset.selectedAddress=location.address;address.dataset.businessName=location.title||location.company||'';address.dataset.businessAddress=location.address;address.dataset.businessDetail=location.detail||'';
-      box.querySelector('[data-extra-detail]').value=location.detail||'';box.querySelector('[data-extra-person]').value=location.person||location.name||'';box.querySelector('[data-phone]').value=location.phone||'';
+      box.querySelector('[data-extra-detail]').value=location.detail||'';fillPartnerContact(box.querySelector('[data-extra-person]'),box.querySelector('[data-phone]'),location);
       address.dispatchEvent(new Event('input',{bubbles:true}));address.dispatchEvent(new Event('change',{bubbles:true}));
     }
     select.onchange=()=>{const p=partners.find(p=>p.id===select.value);if(!p||!profile)return;apply(p);};
@@ -425,8 +430,7 @@
     address.value = location.address; for (const key of ['selectedAddress', 'areaCode', 'township', 'county']) delete address.dataset[key];
     Object.assign(address.dataset, location.address_meta || location.addressMeta || {}); address.dataset.selectedAddress = location.address;
     form.elements[prefix + 'Detail'].value = location.detail || '';
-    form.elements[from ? 'sender' : 'receiver'].value = location.person || location.name || '';
-    form.elements[from ? 'senderPhone' : 'receiverPhone'].value = location.phone || '';
+    fillPartnerContact(form.elements[from ? 'sender' : 'receiver'],form.elements[from ? 'senderPhone' : 'receiverPhone'],location);
     address.dispatchEvent(new Event('input', { bubbles: true })); address.dispatchEvent(new Event('change', { bubbles: true }));
   }
   document.querySelectorAll('[data-partner-select]').forEach(select => select.onchange = () => {
@@ -502,7 +506,7 @@
       const from = prefix === 'from', card = text('div', '', 'review-location');
       card.append(text('h3', from ? '출발지' : '도착지'));
       for (const field of [prefix, prefix + 'Detail']) { const v = targetForm.elements[field]?.value; if (v) card.append(text('p', v)); }
-      card.append(text('p', [targetForm.elements[from ? 'sender' : 'receiver']?.value, targetForm.elements[from ? 'senderPhone' : 'receiverPhone']?.value].filter(Boolean).join(' · ')));
+      card.append(text('p', [contactValue(targetForm.elements[from ? 'sender' : 'receiver']), contactValue(targetForm.elements[from ? 'senderPhone' : 'receiverPhone'])].filter(Boolean).join(' · ')));
       if (targetDoc.getElementById(prefix + 'Scheduled')?.checked) card.append(text('p', targetDoc.getElementById(prefix + 'Date').value + ' ' + targetDoc.getElementById(prefix + 'Time').value));
       grid.append(card);
     }
@@ -517,7 +521,7 @@
     if(targetForm===form){for(const id of ['paymentMethod','splitPair','splitRatio'])values[id]=$(id).value;values.splitPayment=$('splitPayment').checked?'on':'';}
     return { contract:targetForm===form?window.TH_CONTRACT.data():null,service: values.serviceType || '일반 배송', fields: values, nightEnabled: window.TH_PORTAL.nightEnabled, nightRate: window.TH_PORTAL.nightRate, rainEnabled: window.TH_PORTAL.rainEnabled, rainRate: window.TH_PORTAL.rainEnabled?0.2:0,
       quote: targetForm === form ? window.TH_FARE.quote(window.TH_MAP.getDistance()) : null,
-      locations: targetForm === form ? window.TH_ORDER.routeLocations().map(p => ({ label: p.label, businessName: p.businessName||'', address_meta: addressMeta(p.address), address: p.address.value, detail: p.detail.value, person: p.person.value, phone: p.phone.value })) : [] };
+      locations: targetForm === form ? window.TH_ORDER.routeLocations().map(p => ({ label: p.label, businessName: p.businessName||'', address_meta: addressMeta(p.address), address: p.address.value, detail: p.detail.value, person: contactValue(p.person), phone: contactValue(p.phone) })) : [] };
   }
   async function submit(targetForm, summaryText, targetDoc) {
     const button = targetDoc.getElementById('sms'), edit = targetDoc.getElementById('edit'), message = targetDoc.getElementById('message');
