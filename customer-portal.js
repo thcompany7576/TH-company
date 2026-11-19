@@ -167,7 +167,7 @@
     renderThreadSelector();await refreshInbox();
   }
   function sharedIdentityFields() {
-    const shared=Boolean(profile?.requesterRequired);
+    const shared=Boolean(!window.TH_DIRECT_MODE&&profile?.requesterRequired);
     $('sharedRequester').hidden=!shared;
     $('sharedRequesterName').required=shared;
     $('sharedRequesterPhone').required=shared;
