@@ -171,7 +171,51 @@
     $('sharedRequester').hidden=!shared;
     $('sharedRequesterName').required=shared;
     $('sharedRequesterPhone').required=shared;
+    refreshRequesterSuggestions();
   }
+  const requesterSuggestions=[];
+  function refreshRequesterSuggestions() {
+    const direct=Boolean(window.TH_DIRECT_MODE);
+    const enabled=Boolean(profile?.requesterRequired);
+    const name=$(direct?'directName':'sharedRequesterName')?.value.trim()||'';
+    const phone=$(direct?'directPhone':'sharedRequesterPhone')?.value.trim()||'';
+    for(const side of ['sender','receiver']) {
+      for(const [field,value] of [[side,name],[side+'Phone',phone]]){
+        const input=form.elements[field];
+        if(!input.disabled&&(!input.value||input.dataset.requesterDefault===input.value)){
+          input.value=enabled?value:'';
+          input.dataset.requesterDefault=input.value;
+        }
+      }
+      let entry=requesterSuggestions.find(x=>x.side===side);
+      if(!entry){
+        const button=text('button','','secondary');button.type='button';button.dataset.requesterSuggestion=side;
+        button.style.cssText='font-size:13px;padding:8px 12px;min-height:36px;margin:4px 0 10px;white-space:normal';
+        form.elements[side].closest('.grid').after(button);
+        entry={side,button};requesterSuggestions.push(entry);
+        button.onclick=()=>{
+          if(!profile?.requesterRequired)return;
+          const sourceName=$(window.TH_DIRECT_MODE?'directName':'sharedRequesterName').value.trim();
+          const sourcePhone=$(window.TH_DIRECT_MODE?'directPhone':'sharedRequesterPhone').value.trim();
+          if(!sourceName||!sourcePhone)return;
+          for(const [field,value] of [[side,sourceName],[side+'Phone',sourcePhone]]){
+            const input=form.elements[field];if(input.disabled)continue;
+            input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));input.dataset.requesterDefault=input.value;
+          }
+        };
+      }
+      entry.button.hidden=!enabled||!name||!phone;
+      entry.button.textContent='담당자 사용: '+name+' · '+phone;
+    }
+  }
+  document.addEventListener('input',event=>{
+    if(['sharedRequesterName','sharedRequesterPhone','directName','directPhone'].includes(event.target.id))refreshRequesterSuggestions();
+    if(['sender','senderPhone','receiver','receiverPhone'].includes(event.target.name))delete event.target.dataset.requesterDefault;
+  });
+  form.addEventListener('focusout',event=>{
+    if(['sender','senderPhone','receiver','receiverPhone'].includes(event.target.name)&&!event.target.value.trim())refreshRequesterSuggestions();
+  });
+  form.addEventListener('reset',()=>queueMicrotask(refreshRequesterSuggestions));
   function person(forOrder = false) {
     if(window.TH_DIRECT_MODE)return window.TH_DIRECT.person();
     if (profile && (profile.accountType==='shared' || profile.requesterRequired)) {
