@@ -34,7 +34,7 @@
     updateReservationContact(profile.sales);
     const link=document.querySelector('main > a[href]');
     const target=new URL('index.html',location.href);
-    target.searchParams.set('member','1');
+    target.searchParams.set('member','1');target.searchParams.set('v','brand2');
     if(profile.sales?.slug)target.searchParams.set('sales',profile.sales.slug);
     link.href=target.href;
     $('salesRoute').textContent=profile.sales?profile.sales.name+' 담당 접수 · 주문과 문의가 담당자에게 전달됩니다.':'담당 영업자 확인이 필요합니다. 사무실에 문의해 주세요.';
@@ -167,16 +167,17 @@
     renderThreadSelector();await refreshInbox();
   }
   function sharedIdentityFields() {
-    const shared=Boolean(profile?.accountType==='shared');
+    const shared=Boolean(profile?.requesterRequired);
     $('sharedRequester').hidden=!shared;
     $('sharedRequesterName').required=shared;
     $('sharedRequesterPhone').required=shared;
   }
   function person(forOrder = false) {
     if(window.TH_DIRECT_MODE)return window.TH_DIRECT.person();
-    if (profile?.accountType==='shared') {
+    if (profile && (profile.accountType==='shared' || profile.requesterRequired)) {
       if(!forOrder&&thread?.orderId)return {name:thread.name,phone:thread.phone};
-      return {name:$('sharedRequesterName').value.trim(),phone:$('sharedRequesterPhone').value.trim()};
+      if(profile.requesterRequired)return {name:$('sharedRequesterName').value.trim(),phone:$('sharedRequesterPhone').value.trim()};
+      return {name:form.elements.sender.value.trim()||'고객',phone:form.elements.senderPhone.value.trim()};
     }
     if (profile) return { name: profile.name, phone: profile.phone };
     if(!forOrder&&thread?.orderId)return {name:thread.name,phone:thread.phone};
@@ -516,7 +517,7 @@
     try {
       if (!mode) throw Error('주문 화면을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
       requireMember();
-      if (profile) { const fresh = await api.rpc('th6_profile'); if (!fresh) throw Error('계정이 비활성화되었습니다. 사무실에 문의해 주세요.'); profile = fresh; sharedIdentityFields(); if(profile.accountType==='shared'){const who=person(true);if(!who.name||who.name.length>60||! /^[0-9-]{9,14}$/.test(who.phone))throw Error('이번 주문 담당자명과 연락처를 입력해 주세요.');} }
+      if (profile) { const fresh = await api.rpc('th6_profile'); if (!fresh) throw Error('계정이 비활성화되었습니다. 사무실에 문의해 주세요.'); profile = fresh; sharedIdentityFields(); if(profile.requesterRequired){const who=person(true);if(!who.name||who.name.length>60||! /^[0-9-]{9,14}$/.test(who.phone))throw Error('이번 주문 담당자명과 연락처를 입력해 주세요.');} }
       await refreshSettings();if(profile)await window.TH_CONTRACT.load(profile.clientId); originalSubmit(e);
       if (!$('review').hidden) {
         const who = person(true); if (profile) $('summary').textContent = '[의뢰자] ' + profile.company + ' / ' + who.name + ' / ' + who.phone + '\n\n' + $('summary').textContent;
@@ -540,7 +541,7 @@
     try {
       await refreshSettings();
       await refreshInbox();
-      if(profile){const current=await api.rpc('th6_profile');if(!current){await api.logout();return;}profile=current;updateSalesCard();}
+      if(profile){const current=await api.rpc('th6_profile');if(!current){await api.logout();return;}profile=current;sharedIdentityFields();updateSalesCard();}
       if ($('chatDialog').open && thread){await readChat();await refreshInbox();}
     } catch (e) { if ($('chatDialog').open) $('chatError').textContent = e.message; $('activeOrderError').textContent='주문 상태를 확인하지 못했습니다. 잠시 후 다시 확인합니다.'; }
     finally { polling = false; }
@@ -552,7 +553,7 @@
     if (sales) try {
       const route = await api.rpc('th6_public_route', { p_slug: sales });
       if (!route) throw Error('사용할 수 없는 영업자 링크입니다. 안내받은 주소를 확인해 주세요.');
-      guestReservationContact=route;updateReservationContact(route);
+      guestReservationContact=route;updateReservationContact(route);const card=new URL('index.html',location.href);card.searchParams.set('v','brand2');card.searchParams.set('sales',sales);document.querySelector('main > a[href]').href=card.href;
       $('salesRoute').textContent = route.name + ' 담당 접수 · 주문과 문의가 담당자에게 전달됩니다.';
     } catch (e) { $('entryError').textContent = e.message; $('guestOrderButton').disabled = true; $('chatOpen').disabled = true; return; }
     if(!sales){guestReservationContact={name:'권태형',phone:'010-2145-7576'};updateReservationContact(guestReservationContact);}
