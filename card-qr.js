@@ -785,7 +785,7 @@ var qrcodegen;
  const make=(tag,value)=>{const e=document.createElement(tag);if(value)e.textContent=value;return e;};
  const linkFor=person=>{
   if(!person?.active||person.role!=='sales'||(!person.link_slug&&!person.is_representative))throw Error('영업자 전용 링크를 먼저 확인해 주세요.');
-  const link=new URL('https://thcompany7576.github.io/TH-company/index.html');link.searchParams.set('v','brand2');
+  const link=new URL('https://thcompany7576.github.io/TH-company/index.html');link.searchParams.set('v','20261119');
   if(person.link_slug){if(!/^[a-z0-9_-]{2,32}$/.test(person.link_slug))throw Error('전용 링크 구분을 확인해 주세요.');link.searchParams.set('sales',person.link_slug);}
   return link.href;
  };

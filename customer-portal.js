@@ -34,7 +34,7 @@
     updateReservationContact(profile.sales);
     const link=document.querySelector('main > a[href]');
     const target=new URL('index.html',location.href);
-    target.searchParams.set('member','1');target.searchParams.set('v','brand2');
+    target.searchParams.set('member','1');target.searchParams.set('v','20261119');
     if(profile.sales?.slug)target.searchParams.set('sales',profile.sales.slug);
     link.href=target.href;
     $('salesRoute').textContent=profile.sales?profile.sales.name+' 담당 접수 · 주문과 문의가 담당자에게 전달됩니다.':'담당 영업자 확인이 필요합니다. 사무실에 문의해 주세요.';
@@ -591,7 +591,7 @@
     if (sales) try {
       const route = await api.rpc('th6_public_route', { p_slug: sales });
       if (!route) throw Error('사용할 수 없는 영업자 링크입니다. 안내받은 주소를 확인해 주세요.');
-      guestReservationContact=route;updateReservationContact(route);const card=new URL('index.html',location.href);card.searchParams.set('v','brand2');card.searchParams.set('sales',sales);document.querySelector('main > a[href]').href=card.href;
+      guestReservationContact=route;updateReservationContact(route);const card=new URL('index.html',location.href);card.searchParams.set('v','20261119');card.searchParams.set('sales',sales);document.querySelector('main > a[href]').href=card.href;
       $('salesRoute').textContent = route.name + ' 담당 접수 · 주문과 문의가 담당자에게 전달됩니다.';
     } catch (e) { $('entryError').textContent = e.message; $('guestOrderButton').disabled = true; $('chatOpen').disabled = true; return; }
     if(!sales){guestReservationContact={name:'권태형',phone:'010-2145-7576'};updateReservationContact(guestReservationContact);}

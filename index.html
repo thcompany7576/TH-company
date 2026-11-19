@@ -54,13 +54,13 @@ body{margin:0;background:#111;color:#fff;font-family:Arial,"Noto Sans KR",sans-s
   <div class="footer">TH company · 빠르게, 안전하게, 정확하게!</div>
 </div>
 <script>
-const shareUrl=new URL(location.href);shareUrl.searchParams.set("v","brand2");let CARD_URL=shareUrl.href;
+const shareUrl=new URL(location.href);shareUrl.searchParams.set("v","20261119");let CARD_URL=shareUrl.href;
 const shareButton=document.getElementById('shareCardButton');
 const shareData={title:"THcompany",text:"THcompany",url:CARD_URL};
 const nativeShare=typeof navigator.share==='function'&&(!navigator.canShare||navigator.canShare(shareData));
 if(!nativeShare)shareButton.textContent='🔗 명함 링크 복사';
 async function shareCard(){
-  if(nativeShare){try{await navigator.share(shareData)}catch(e){if(e.name!=='AbortError')await copyLink();}}
+  if(nativeShare){try{await navigator.share({...shareData,url:CARD_URL})}catch(e){if(e.name!=='AbortError')await copyLink();}}
   else await copyLink();
 }
 async function copyLink(){
@@ -68,5 +68,5 @@ async function copyLink(){
   catch(e){prompt("아래 링크를 복사해 주세요.",CARD_URL)}
 }
 </script>
-<script src="config.js"></script><script src="portal-api.js"></script><script src="sales-card.js?v=20261119-member-route"></script><script src="pwa.js"></script></body>
+<script src="config.js"></script><script src="portal-api.js"></script><script src="sales-card.js?v=20261119-card-link"></script><script src="pwa.js"></script></body>
 </html>

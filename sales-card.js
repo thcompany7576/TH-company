@@ -17,7 +17,7 @@
  .then(r=>{
   if(!r)throw Error('사용할 수 없는 영업자 링크입니다.');title.textContent='TH company · '+r.name;document.title='TH company · '+r.name;
   const target=new URL('order.html',location.href);if(r.slug)target.searchParams.set('sales',r.slug);order.href=target.href;order.hidden=false;
-  const canonical=new URL('index.html',location.href);if(r.slug)canonical.searchParams.set('sales',r.slug);canonical.searchParams.set('v','brand2');CARD_URL=canonical.href;
+  const canonical=new URL('index.html',location.href);if(r.slug)canonical.searchParams.set('sales',r.slug);canonical.searchParams.set('v','20261119');CARD_URL=canonical.href;
   document.getElementById('shareCardButton').hidden=false;
   if(r.phone&&/^[0-9-]{9,14}$/.test(r.phone)){phone.textContent=r.phone.replace(/-/g,'').replace(/^(01\d)(\d{3,4})(\d{4})$/,'$1-$2-$3');call.href='tel:'+r.phone.replace(/-/g,'');call.hidden=false;}else phone.textContent='전화번호 등록 준비 중';
   if(/^https:\/\/open\.kakao\.com\/(o|me)\/[A-Za-z0-9_-]+$/.test(r.kakaoUrl||'')){kakao.href=r.kakaoUrl;kakao.hidden=false;}

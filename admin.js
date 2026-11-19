@@ -30,7 +30,7 @@
   function showOwnCard() {
     const enabled=staff?.active&&staff.role==='sales';$('ownCard').hidden=!enabled;
     if(!enabled){$('ownCardLink').removeAttribute('href');$('ownCardLink').textContent='';return;}
-    const link=new URL('index.html',location.href);link.searchParams.set('v','brand2');if(staff.link_slug)link.searchParams.set('sales',staff.link_slug);
+    const link=new URL('index.html',location.href);link.searchParams.set('v','20261119');if(staff.link_slug)link.searchParams.set('sales',staff.link_slug);
     $('ownCardTitle').textContent=staff.name+'님의 온라인명함';$('ownCardLink').href=link.href;$('ownCardLink').textContent=link.href;
     if(staff.is_representative&&!$('ownKakaoEdit')){const b=button('카카오톡 링크 수정',async()=>{const value=prompt('대표님 카카오톡 오픈채팅 링크',staff.kakao_url||'');if(value===null)return;const url=value.trim();if(!/^https:\/\/open\.kakao\.com\/(o|me)\/[A-Za-z0-9_-]+$/.test(url)){$('ownCardNotice').textContent='카카오톡 오픈채팅 링크를 확인해 주세요.';return;}b.disabled=true;try{await api.rpc('th6_update_own_kakao',{p_url:url});staff.kakao_url=url;$('ownCardNotice').textContent='카카오톡 상담 링크를 저장했습니다. 온라인명함을 새로 열면 반영됩니다.';}catch(e){$('ownCardNotice').textContent=e.message;}finally{b.disabled=false;}});b.id='ownKakaoEdit';$('ownCardCopy').after(b);}
     if($('ownKakaoEdit'))$('ownKakaoEdit').hidden=!staff.is_representative;
@@ -303,7 +303,7 @@
       if (!representative()) continue;
       const card = text('article', '', 'staff-card'); card.append(text('strong', r.name + ' · ' + (r.is_representative ? '대표' : r.role === 'owner' ? '관제' : '영업자')));
       if (r.link_slug) {
-        const link = new URL('index.html', location.href); link.searchParams.set('v','brand2'); link.searchParams.set('sales', r.link_slug);
+        const link = new URL('index.html', location.href); link.searchParams.set('v','20261119'); link.searchParams.set('sales', r.link_slug);
         card.append(text('p', link.href, 'link-preview')); card.append(button('홍보 링크 복사', async () => { try { await navigator.clipboard.writeText(link.href); notice('영업자 링크를 복사했습니다.'); } catch { notice('표시된 링크를 직접 복사해 주세요.'); } }));
       } else if (r.role !== 'owner') card.append(text('p', new URL('index.html', location.href).href, 'link-preview'));
       card.append(text('p', r.active ? '활성화' : '비활성화', 'portal-note'));
