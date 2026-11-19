@@ -155,7 +155,7 @@
     $('accountActions').hidden = false; $('accountName').textContent = profile ? profile.company + ' · ' + profile.name : '로그인 없이 주문';
     $('partnerManagerButton').hidden = !profile;
     $('customerLogout').hidden=!profile;
-    $('requesterProfile').hidden = !profile; $('requesterCard').hidden = !profile;
+    sharedIdentityFields(); $('requesterProfile').hidden = !profile; $('requesterCard').hidden = !profile;
     if (profile) {
       await window.TH_CONTRACT.load(profile.clientId);updateSalesCard();
       $('profileCompany').textContent = profile.company; $('profileName').textContent = profile.name;
@@ -166,8 +166,18 @@
     thread = savedThreads().find(t => t.account === (profile?.contactId || 'guest:' + sales)) || null;
     renderThreadSelector();await refreshInbox();
   }
+  function sharedIdentityFields() {
+    const shared=Boolean(profile?.accountType==='shared');
+    $('sharedRequester').hidden=!shared;
+    $('sharedRequesterName').required=shared;
+    $('sharedRequesterPhone').required=shared;
+  }
   function person(forOrder = false) {
     if(window.TH_DIRECT_MODE)return window.TH_DIRECT.person();
+    if (profile?.accountType==='shared') {
+      if(!forOrder&&thread?.orderId)return {name:thread.name,phone:thread.phone};
+      return {name:$('sharedRequesterName').value.trim(),phone:$('sharedRequesterPhone').value.trim()};
+    }
     if (profile) return { name: profile.name, phone: profile.phone };
     if(!forOrder&&thread?.orderId)return {name:thread.name,phone:thread.phone};
     const sender = { name: form.elements.sender.value.trim(), phone: form.elements.senderPhone.value.trim() };
@@ -184,9 +194,9 @@
   async function ensureThread(forOrder = false) {
     requireMember();
     const who = person(forOrder);
-    if (!who.name || !/^[0-9-]{9,14}$/.test(who.phone)) throw Error(forOrder ? '출발지 성명과 연락처를 입력해 주세요.' : '문의 성명과 연락처를 입력해 주세요.');
+    if (!who.name || who.name.length>60 || !/^[0-9-]{9,14}$/.test(who.phone)) throw Error(profile?.accountType==='shared' ? '이번 주문 담당자명과 연락처를 입력해 주세요.' : forOrder ? '출발지 성명과 연락처를 입력해 주세요.' : '문의 성명과 연락처를 입력해 주세요.');
     if (!thread || thread.account !== (profile?.contactId || 'guest:' + sales) || (forOrder && thread.orderId) ||
-        (!profile && (thread.name !== who.name || thread.phone !== who.phone))) {
+        ((!profile || profile.accountType==='shared') && (thread.name !== who.name || thread.phone !== who.phone))) {
       thread = { id: crypto.randomUUID(), token: randomToken(), account: profile?.contactId || 'guest:' + sales, time: Date.now(), name: who.name, phone: who.phone };
       rememberThread();
     }
@@ -488,6 +498,7 @@
       if (!orderAttempt) orderAttempt = { id: crypto.randomUUID(), thread: t.id, context: { ...t }, summary: summaryText, payload: payload(targetForm) };
       message.textContent = '주문을 접수하고 있습니다…';
       const result = await api.rpc('th6_submit_request', { p_id: orderAttempt.id, p_thread: t.id, p_token: t.token, p_summary: orderAttempt.summary, p_payload: orderAttempt.payload });
+      if(profile?.accountType==='shared'){$('sharedRequesterName').value='';$('sharedRequesterPhone').value='';}
       t.orderId = result.id;t.orderNumber=result.orderNumber; thread = t; rememberThread(); orderAttempt = null;await refreshInbox();
       message.textContent = '주문 요청이 접수되었습니다. 주문번호: ' + orderNumber(result) + ' · 이용 문의사항에서 답변과 배정 알림을 확인해 주세요.';
       button.textContent = '접수 완료'; targetDoc.getElementById('newOrder').hidden = false;
@@ -506,7 +517,7 @@
     try {
       if (!mode) throw Error('주문 화면을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
       requireMember();
-      if (profile) { const fresh = await api.rpc('th6_profile'); if (!fresh) throw Error('계정이 비활성화되었습니다. 사무실에 문의해 주세요.'); profile = fresh; }
+      if (profile) { const fresh = await api.rpc('th6_profile'); if (!fresh) throw Error('계정이 비활성화되었습니다. 사무실에 문의해 주세요.'); profile = fresh; sharedIdentityFields(); if(profile.accountType==='shared'){const who=person(true);if(!who.name||who.name.length>60||! /^[0-9-]{9,14}$/.test(who.phone))throw Error('이번 주문 담당자명과 연락처를 입력해 주세요.');} }
       await refreshSettings();if(profile)await window.TH_CONTRACT.load(profile.clientId); originalSubmit(e);
       if (!$('review').hidden) {
         const who = person(true); if (profile) $('summary').textContent = '[의뢰자] ' + profile.company + ' / ' + who.name + ' / ' + who.phone + '\n\n' + $('summary').textContent;
