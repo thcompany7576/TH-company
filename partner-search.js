@@ -25,6 +25,5 @@
   input.addEventListener('keydown',event=>{if(event.key==='Escape'){close();return;}if(event.key==='Enter'){event.preventDefault();if(!list.hidden&&active>=0)pick(choices[active]);return;}if(event.key!=='ArrowDown'&&event.key!=='ArrowUp')return;event.preventDefault();if(list.hidden)render();if(!choices.length||list.hidden)return;active=active<0?(event.key==='ArrowDown'?0:choices.length-1):(active+(event.key==='ArrowDown'?1:-1)+choices.length)%choices.length;[...list.querySelectorAll('[role=option]')].forEach((b,i)=>b.setAttribute('aria-selected',String(i===active)));input.setAttribute('aria-activedescendant',list.id+'-'+active);});
   select.addEventListener('change',update);new MutationObserver(update).observe(select,{childList:true,subtree:true});update();
  }
- document.getElementById('order').addEventListener('change',event=>{if(event.target.matches('[data-same-profile],[data-extra-same-profile]')&&event.target.checked){const scope=event.target.closest('fieldset.stop')||event.target.closest('section');scope?.querySelectorAll('.partner-search input').forEach(input=>{input.value='';input.dispatchEvent(new Event('blur'));});}});
  const scan=()=>document.querySelectorAll(selector).forEach(attach);scan();new MutationObserver(scan).observe(document.getElementById('order'),{childList:true,subtree:true});
 })();
