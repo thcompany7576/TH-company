@@ -419,7 +419,7 @@
     for (const p of partners) {
       const card = text('div', '', 'partner-card'); card.append(text('strong', p.title), text('p', p.address + ' ' + p.detail), text('p', p.person + ' · ' + p.phone));
       const actions = text('div', '', 'actions'), edit = text('button', '수정', 'secondary'), remove = text('button', '삭제', 'secondary');
-      edit.hidden=remove.hidden=!window.TH_DIRECT_MODE;
+      edit.hidden=!window.TH_DIRECT_MODE;remove.hidden=!window.TH_DIRECT_MODE||Boolean(p.client_linked);
       edit.type = remove.type = 'button'; edit.onclick = () => editPartner(p);
       remove.onclick = async () => {
         if (!confirm(p.title + ' 거래처를 모든 의뢰자의 공용 목록에서 숨길까요?')) return; remove.disabled = true;
