@@ -54,7 +54,7 @@ body{margin:0;background:#111;color:#fff;font-family:Arial,"Noto Sans KR",sans-s
   <div class="footer">TH company · 빠르게, 안전하게, 정확하게!</div>
 </div>
 <script>
-const shareUrl=new URL(location.href);shareUrl.searchParams.set("v","20261119");let CARD_URL=shareUrl.href;
+const shareUrl=new URL(location.href);shareUrl.searchParams.set("v",shareUrl.searchParams.get("sales")==="03"?"20261120":"20261119");let CARD_URL=shareUrl.href;
 const shareButton=document.getElementById('shareCardButton');
 const shareData={title:"THcompany",text:"THcompany",url:CARD_URL};
 const nativeShare=typeof navigator.share==='function'&&(!navigator.canShare||navigator.canShare(shareData));
@@ -68,5 +68,5 @@ async function copyLink(){
   catch(e){prompt("아래 링크를 복사해 주세요.",CARD_URL)}
 }
 </script>
-<script src="config.js"></script><script src="portal-api.js"></script><script src="sales-card.js?v=20261119-card-link"></script><script src="pwa.js"></script></body>
+<script src="config.js"></script><script src="portal-api.js"></script><script src="sales-card.js?v=20261120-card03"></script><script src="pwa.js"></script></body>
 </html>
