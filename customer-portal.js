@@ -155,7 +155,7 @@
     $('accountActions').hidden = false; $('accountName').textContent = profile ? profile.company + ' · ' + profile.name : '로그인 없이 주문';
     $('partnerManagerButton').hidden = !profile;
     $('customerLogout').hidden=!profile;
-    sharedIdentityFields(); $('requesterProfile').hidden = !profile; $('requesterCard').hidden = !profile;
+    sharedIdentityFields(); void window.TH_REQUESTERS?.load(profile); $('requesterProfile').hidden = !profile; $('requesterCard').hidden = !profile;
     if (profile) {
       await window.TH_CONTRACT.load(profile.clientId);updateSalesCard();
       $('profileCompany').textContent = profile.company; $('profileName').textContent = profile.name;
@@ -536,6 +536,7 @@
       if (!orderAttempt) orderAttempt = { id: crypto.randomUUID(), thread: t.id, context: { ...t }, summary: summaryText, payload: payload(targetForm) };
       message.textContent = '주문을 접수하고 있습니다…';
       const result = await api.rpc('th6_submit_request', { p_id: orderAttempt.id, p_thread: t.id, p_token: t.token, p_summary: orderAttempt.summary, p_payload: orderAttempt.payload });
+      void window.TH_REQUESTERS?.load(profile);
       if(profile?.accountType==='shared'){$('sharedRequesterName').value='';$('sharedRequesterPhone').value='';}
       t.orderId = result.id;t.orderNumber=result.orderNumber; thread = t; rememberThread(); orderAttempt = null;await refreshInbox();if(profile)await loadPartners().catch(()=>{});
       message.textContent = '주문 요청이 접수되었습니다. 주문번호: ' + orderNumber(result) + ' · 이용 문의사항에서 답변과 배정 알림을 확인해 주세요.';

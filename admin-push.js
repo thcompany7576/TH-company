@@ -5,7 +5,7 @@
   const capable=()=> 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   const installed=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone;
   const ios=()=>/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-  const auto=()=>staff?.role==='sales';
+  const auto=()=>['sales','owner'].includes(staff?.role);
   const current=stamp=>Boolean(staff&&stamp===epoch);
   const info=message=>$('pushStatus').textContent=message;
   async function server(path,body){return api.api('/functions/v1/staff-push'+path,body?{method:'POST',body:JSON.stringify(body)}:{});}
@@ -41,7 +41,7 @@
         sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes(publicKey)});if(!current(stamp))return;
       }
       await server('/subscribe',{subscription:sub.toJSON()});if(!current(stamp))return;
-      info('이 기기의 푸시 알림이 자동 연결되었습니다. 잠금 화면 표시는 기기 알림 설정을 따릅니다.');
+      info('이 기기의 푸시 알림이 자동 연결되었습니다. 화면을 닫아도 서버 알림을 받습니다. 알림 소리는 기기 설정을 따릅니다.');
     }catch(e){if(current(stamp))info('알림 자동 연결을 완료하지 못했습니다. 연결 상태를 확인해 주세요. '+e.message);}
   }
   function connect(ask=false){
@@ -53,7 +53,7 @@
   }
   $('pushEnable').onclick=()=>connect(true);
   function resume(){if(auto()&&document.visibilityState!=='hidden'){if(capable()&&Notification.permission==='granted')void connect();else arm();}}
-  window.addEventListener('online',resume);document.addEventListener('visibilitychange',resume);
+  window.addEventListener('online',resume);window.addEventListener('pageshow',resume);document.addEventListener('visibilitychange',resume);
   window.TH_PUSH={
     async init(account){
       disarm();epoch++;staff=account;requested=false;$('pushPanel').hidden=false;$('pushEnable').hidden=auto();$('pushEnable').disabled=false;
