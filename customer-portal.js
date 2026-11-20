@@ -3,7 +3,7 @@
   const $ = id => document.getElementById(id), api = window.TH_API;
   const form = $('order');
   const sales = new URLSearchParams(location.search).get('sales') || '';
-  const memberApp = !window.TH_DIRECT_MODE && (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true);
+  const memberApp = Boolean(window.TH_MEMBER_APP);
   let profile = null, partners = [], mode = null, settingsReady = false, thread = null, polling = false;
   let pendingMessage = null, orderAttempt = null, loadingSettings = null, unread = 0;
   $('compactService').onchange=()=>{const c=[...document.querySelectorAll('[data-choice="serviceType"]')].find(c=>c.value===$('compactService').value);if(c&&!c.disabled){c.checked=true;c.dispatchEvent(new Event('change',{bubbles:true}));}};
@@ -89,7 +89,7 @@
   const loginDialog=document.createElement('dialog');loginDialog.className='chat-dialog';loginDialog.id='clientLoginDialog';
   const loginClose=text('button','닫기','secondary');loginClose.type='button';loginClose.onclick=()=>loginDialog.close();
   $('portalEntry').before(loginDialog);
-  if (!memberApp) loginDialog.append(loginClose,$('portalEntry'));
+  if (!memberApp) { loginDialog.append(loginClose,$('portalEntry'));$('portalEntry').hidden=true;$('salesRoute').after($('entryError')); }
   function requireMember() {
     if (memberApp && (!profile || !api.session)) {
       showEntry();
@@ -104,7 +104,10 @@
     $('customerLogout').textContent='로그아웃';
     $('portalEntry').querySelector('p').textContent='주문 앱은 회원 로그인 후 이용할 수 있습니다.';
   }
-  $('memberLoginOpen').onclick=()=>{$('portalEntry').hidden=false;loginDialog.showModal();$('loginId').focus();};
+  const downloads=$('programDownloadDialog');
+  $('programDownloadClose').onclick=()=>downloads.close();
+  $('memberLoginOpen').textContent='주문접수 프로그램 다운로드';
+  $('memberLoginOpen').onclick=()=>{if(!memberApp)downloads.showModal();};
   function paymentChoices(targetForm=form,doc=document){
     const select=targetForm.elements.paymentMethod;if(!select)return;select.replaceChildren();
     const blank=text('option','결제 방법을 선택해 주세요');blank.value='';blank.disabled=blank.selected=true;select.append(blank);
@@ -148,7 +151,7 @@
     updateReservationContact(profile ? profile.sales : guestReservationContact);
     await refreshSettings(); mode = nextMode;inbox=[];inboxBaseline=false;chatDrafts.clear();$('chatBody').value='';loginDialog.close();paymentChoices();memberGoods();
     const agencyDoc=$('agencyFrame').contentDocument;if(agencyDoc?.getElementById('order'))paymentChoices(agencyDoc.getElementById('order'),agencyDoc);
-    $('memberLoginOpen').hidden=Boolean(profile);
+    $('memberLoginOpen').hidden=memberApp;
     $('chatOpen').hidden=false;$('soundChoose').hidden=false;
     window.TH_SOUNDS.init(profile?.contactId||'customer-device');
     $('portalEntry').hidden = true; $('portalContent').hidden = false;
@@ -359,6 +362,7 @@
     finally { $('chatSend').disabled = false; }
   };
   $('customerLogin').onsubmit = async e => {
+    if(!memberApp){e.preventDefault();return;}
     e.preventDefault(); $('customerLoginButton').disabled = true; $('entryError').textContent = '';
     try {
       const email = await api.clientEmail($('loginId').value);
@@ -596,10 +600,10 @@
       $('salesRoute').textContent = route.name + ' 담당 접수 · 주문과 문의가 담당자에게 전달됩니다.';
     } catch (e) { $('entryError').textContent = e.message; $('guestOrderButton').disabled = true; $('chatOpen').disabled = true; return; }
     if(!sales){guestReservationContact={name:'권태형',phone:'010-2145-7576'};updateReservationContact(guestReservationContact);}
-    try { await api.restore();
+    try { if(memberApp||window.TH_DIRECT_MODE)await api.restore();
 
       await refreshSettings();
-      if (api.session) { profile = await api.rpc('th6_profile');if(!profile&&!window.TH_DIRECT_MODE)await api.logout(); }
+      if ((memberApp||window.TH_DIRECT_MODE)&&api.session) { profile = await api.rpc('th6_profile');if(!profile&&!window.TH_DIRECT_MODE)await api.logout(); }
       await enter(profile?'member':'guest');
     } catch (e) { $('entryError').textContent = e.message; }
   })();
