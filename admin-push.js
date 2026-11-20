@@ -1,6 +1,43 @@
 (() => {
   'use strict';
   const api=window.TH_API,$=id=>document.getElementById(id);
+  if(window.TH_DESKTOP?.platform==='windows'){
+    window.TH_PUSH={
+      async init(){ $('pushPanel').hidden=false;$('pushEnable').hidden=true;$('pushStatus').textContent='윈도우 앱이 알림 영역에서 실행 중이면 주문 알림을 받을 수 있습니다. 완전히 종료하면 수신이 중단됩니다.'; },
+      async disconnect(){ $('pushPanel').hidden=true; },
+      reset(){ $('pushPanel').hidden=true; }
+    };
+    return;
+  }
+  // Native candidate only; production web has not been replaced.
+  if(window.TH_NATIVE){
+    let account=null,version=0,sequence=0,job=null,token=null,gesture=null,asked=false;
+    const replies=new Map(),info=text=>$('pushStatus').textContent=text;
+    window.TH_NATIVE.onmessage=event=>{
+      try{const message=JSON.parse(event.data),waiting=replies.get(message.id);if(!waiting)return;replies.delete(message.id);clearTimeout(waiting.timer);message.error?waiting.reject(Error(message.error)):waiting.resolve(message);}catch{}
+    };
+    function native(action){return new Promise((resolve,reject)=>{const id=String(++sequence);const timer=setTimeout(()=>{replies.delete(id);reject(Error('휴대폰 알림 연결 시간이 초과됐습니다.'));},15000);replies.set(id,{resolve,reject,timer});try{window.TH_NATIVE.postMessage(JSON.stringify({id,action}));}catch(e){clearTimeout(timer);replies.delete(id);reject(e);}});}
+    const server=(path,body)=>api.api('/functions/v1/staff-push'+path,{method:'POST',body:JSON.stringify(body)});
+    function disarm(){if(gesture){document.removeEventListener('pointerdown',gesture,true);document.removeEventListener('keydown',gesture,true);gesture=null;}}
+    function arm(){if(gesture||asked||!account)return;gesture=event=>{if(!event.isTrusted||event.type==='keydown'&&['Shift','Control','Alt','Meta','Escape'].includes(event.key))return;disarm();void connect(true);};document.addEventListener('pointerdown',gesture,true);document.addEventListener('keydown',gesture,true);}
+    function connect(ask=false){
+      if(!account)return Promise.resolve();if(job)return job;
+      const stamp=version;disarm();if(ask)asked=true;
+      job=(async()=>{try{
+        const result=await native(ask?'request':'token');if(stamp!==version||!account)return;
+        if(result.permission!=='granted'||!result.token){info('휴대폰의 TH company 앱 알림을 허용해 주세요.');if(!ask)arm();return;}
+        token=result.token;await server('/subscribe-native',{token:result.token});if(stamp!==version||!account)return;
+        info('안드로이드 앱 알림이 연결되었습니다. 알림 소리는 휴대폰 설정을 따릅니다.');
+      }catch(e){if(stamp===version)info('휴대폰 알림 연결을 완료하지 못했습니다. 다시 열거나 연결 상태를 확인해 주세요.');}finally{job=null;}})();return job;
+    }
+    window.TH_PUSH={
+      async init(profile){version++;account=profile;asked=false;disarm();$('pushPanel').hidden=false;$('pushEnable').hidden=false;$('pushEnable').disabled=false;$('pushEnable').onclick=()=>connect(true);await connect();},
+      async disconnect(){version++;account=null;disarm();if(job)await job;if(token){await server('/unsubscribe',{endpoint:'https://fcm.googleapis.com/native/'+encodeURIComponent(token)});token=null;}$('pushPanel').hidden=true;},
+      reset(){version++;account=null;token=null;disarm();$('pushPanel').hidden=true;}
+    };
+    const resume=()=>{if(account&&document.visibilityState!=='hidden')void connect();};window.addEventListener('online',resume);window.addEventListener('pageshow',resume);document.addEventListener('visibilitychange',resume);
+    return;
+  }
   let staff=null,epoch=0,work=null,gesture=null,requested=false;
   const capable=()=> 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   const installed=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone;

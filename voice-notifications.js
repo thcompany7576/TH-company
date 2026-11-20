@@ -10,6 +10,10 @@
   function prime(){if(unlocked)return;unlocked=true;try{const silent=new SpeechSynthesisUtterance(' ');silent.volume=0;speechSynthesis.speak(silent);}catch{}}
   document.addEventListener('pointerdown',prime,{capture:true});document.addEventListener('keydown',prime,{capture:true});
   async function play(kind='message',preview=false,index=selected){
+    // Native integration candidate; not deployed to the production website yet.
+    if(!preview&&window.TH_DESKTOP?.platform==='windows'){
+      try{window.TH_DESKTOP.notify(Object.hasOwn(phrases,kind)?kind:'notice');}catch{}
+    }
     if(!unlocked||!('speechSynthesis' in window)||!('SpeechSynthesisUtterance' in window))return false;
     if(!preview&&Date.now()-lastPlay<2500)return true;lastPlay=Date.now();
     const event=Object.hasOwn(phrases,kind)?kind:'notice';
