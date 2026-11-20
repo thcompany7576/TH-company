@@ -9,7 +9,7 @@
     };
     return;
   }
-  // Native candidate only; production web has not been replaced.
+  // Android WebView uses its origin-scoped native notification bridge.
   if(window.TH_NATIVE){
     let account=null,version=0,sequence=0,job=null,token=null,gesture=null,asked=false;
     const replies=new Map(),info=text=>$('pushStatus').textContent=text;
@@ -23,12 +23,14 @@
     function connect(ask=false){
       if(!account)return Promise.resolve();if(job)return job;
       const stamp=version;disarm();if(ask)asked=true;
+      $('pushEnable').disabled=true;info('휴대폰 알림 연결을 확인하고 있습니다…');
       job=(async()=>{try{
         const result=await native(ask?'request':'token');if(stamp!==version||!account)return;
         if(result.permission!=='granted'||!result.token){info('휴대폰의 TH company 앱 알림을 허용해 주세요.');if(!ask)arm();return;}
+        info('휴대폰 알림을 서버에 등록하고 있습니다…');
         token=result.token;await server('/subscribe-native',{token:result.token});if(stamp!==version||!account)return;
         info('안드로이드 앱 알림이 연결되었습니다. 알림 소리는 휴대폰 설정을 따릅니다.');
-      }catch(e){if(stamp===version)info('휴대폰 알림 연결을 완료하지 못했습니다. 다시 열거나 연결 상태를 확인해 주세요.');}finally{job=null;}})();return job;
+      }catch(e){if(stamp===version)info('휴대폰 알림 연결 실패: '+(e.message||'인터넷 연결을 확인한 뒤 다시 시도해 주세요.'));}finally{job=null;if(stamp===version)$('pushEnable').disabled=false;}})();return job;
     }
     window.TH_PUSH={
       async init(profile){version++;account=profile;asked=false;disarm();$('pushPanel').hidden=false;$('pushEnable').hidden=false;$('pushEnable').disabled=false;$('pushEnable').onclick=()=>connect(true);await connect();},
