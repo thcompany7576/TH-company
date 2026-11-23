@@ -604,6 +604,15 @@
     }catch(e){notice('새 주문 확인 중 연결 오류: '+e.message);}finally{polling=false;}
   }
   setInterval(poll,10000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll();});
-  (async()=>{await api.restore();if(api.session)try{await enter();}catch(e){notice(e.message);}})();
+  let restoringLogin=false;
+  async function restoreLogin(){
+    if(restoringLogin||staff||document.hidden)return;
+    restoringLogin=true;
+    try{await api.restore();if(api.session)await enter();}catch(e){notice(e.message);}
+    finally{restoringLogin=false;}
+  }
+  window.addEventListener('online',restoreLogin);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)restoreLogin();});
+  restoreLogin();
 })();
 

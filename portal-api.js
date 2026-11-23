@@ -32,7 +32,9 @@
           throw Error('아이디(이메일) 또는 비밀번호가 맞지 않습니다. 등록된 계정으로 다시 입력해 주세요.');
         }
         if (data?.error_code === 'email_not_confirmed' || data?.code === 'email_not_confirmed') throw Error('이메일 확인이 필요한 계정입니다. 사무실에 문의해 주세요.');
-        throw Error(message || '서버 응답을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+        const error = Error(message || '서버 응답을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+        error.status = response.status; error.authCode = data?.error_code || data?.code;
+        throw error;
       }
       return data;
     } catch (error) {
@@ -60,8 +62,11 @@
         if (stamp !== epoch) return;
         session = { ...data, expires_at: Date.now() / 1000 + data.expires_in }; store();
       } catch (error) {
-        if (stamp === epoch) clear();
-        throw Error('로그인을 다시 해 주세요. ' + error.message);
+        const rejected = [400,401,403].includes(error.status) &&
+          (/^(refresh_token_not_found|refresh_token_already_used|invalid_refresh_token|session_not_found|session_expired|user_banned|user_not_found)$/.test(error.authCode || '') ||
+           /invalid refresh token|refresh token.*(not found|already used)|session.*(expired|not found)/i.test(error.message));
+        if (stamp === epoch && rejected) clear();
+        throw Error((rejected ? '로그인을 다시 해 주세요. ' : '로그인은 유지됩니다. 인터넷 연결 후 다시 시도해 주세요. ') + error.message);
       }
     })();
     try { await refreshing; } finally { refreshing = null; }
@@ -83,7 +88,8 @@
       remembered = separateWindows && temp ? sessionStorage.getItem(storageKey + ':remember') === 'true' : Boolean(local);
       const saved = JSON.parse((separateWindows ? temp || local : local || temp) || 'null');
       if (saved && typeof saved.access_token === 'string' && typeof saved.refresh_token === 'string' && Number.isFinite(saved.expires_at)) session = saved;
-      await ensure();
+      // A temporary network/server failure must not delete a remembered login.
+      try { await ensure(); } catch (error) { if (!session) throw error; }
       if (separateWindows && session) store();
     } catch { clear(); }
     return session;
