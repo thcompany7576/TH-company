@@ -393,7 +393,7 @@
     for (const p of clientPartners) {
       const card = text('div', '', 'partner-card'); card.append(text('strong', p.title), text('p', p.address + ' ' + p.detail), text('p', p.person + ' · ' + p.phone));
       const actions = text('div', '', 'actions'); actions.append(button('수정', () => editPartner(p)), button('삭제', async () => {
-        if (!confirm(p.title + ' 거래처를 모든 의뢰자의 공용 목록에서 숨길까요?')) return;
+        if (!confirm(p.title + ' 거래처를 해당 의뢰자의 목록에서 숨길까요?')) return;
         try { await api.api('/rest/v1/th6_partners?id=eq.' + p.id, { method: 'DELETE' }); await loadClientAccounts(); } catch (e) { $('clientNotice').textContent = e.message; }
       }, 'danger')); if(p.client_linked){actions.lastElementChild.remove();card.append(text('p','의뢰자 연동 · 의뢰자 삭제 시 함께 제외','portal-note'));} card.append(actions); pRoot.append(card);
     }

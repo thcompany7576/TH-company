@@ -3,7 +3,7 @@
 api.api=async(path,options={})=>{
  if(!path.startsWith('/rest/v1/th6_partners'))return request(path,options);
  const method=(options.method||'GET').toUpperCase();
- if(method==='GET')return rpc('th6_shared_partner_list',{});
+ if(method==='GET'){const rows=await rpc('th6_shared_partner_list',{}),client=new URLSearchParams(path.split('?')[1]||'').get('client_id')?.replace(/^eq\./,'');return client&&!window.TH_DIRECT_MODE?rows.filter(p=>p.owner_client_id===client):rows;}
  const id=new URLSearchParams(path.split('?')[1]||'').get('id')?.replace(/^eq\./,'')||null;
  if(method==='DELETE')return rpc('th6_shared_partner_disable',{p_id:id});
  if(!['POST','PATCH'].includes(method))throw Error('지원하지 않는 거래처 작업입니다.');

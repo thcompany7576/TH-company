@@ -408,7 +408,7 @@
     function apply(location){
       const address=box.querySelector('[data-searched-address]');address.value=location.address;
       for(const key of ['selectedAddress','areaCode','township','county','businessName','businessAddress','businessDetail'])delete address.dataset[key];
-      Object.assign(address.dataset,location.address_meta||location.addressMeta||{});address.dataset.selectedAddress=location.address;address.dataset.businessName=location.title||location.company||'';address.dataset.businessAddress=location.address;address.dataset.businessDetail=location.detail||'';
+      Object.assign(address.dataset,location.address_meta||location.addressMeta||{});address.dataset.selectedAddress=location.address;address.dataset.savedPartner=JSON.stringify(location);delete address.dataset.savePartner;address.dataset.businessName=location.title||location.company||'';address.dataset.businessAddress=location.address;address.dataset.businessDetail=location.detail||'';
       box.querySelector('[data-extra-detail]').value=location.detail||'';fillPartnerContact(box.querySelector('[data-extra-person]'),box.querySelector('[data-phone]'),location);
       address.dispatchEvent(new Event('input',{bubbles:true}));address.dispatchEvent(new Event('change',{bubbles:true}));
     }
@@ -422,7 +422,7 @@
     partners.sort((a,b)=>String(a.title||'').trim().localeCompare(String(b.title||'').trim(),'ko',{numeric:true,sensitivity:'base'}));
     for (const select of document.querySelectorAll('[data-partner-select]')) {
       const value = select.value; select.replaceChildren(); const blank = text('option', '저장한 거래처 선택'); blank.value = ''; select.append(blank);
-      for (const p of partners) { const opt = text('option', p.title); opt.value = p.id; opt.dataset.address=p.address+' '+(p.detail||''); select.append(opt); }
+      for (const p of partners) { const opt = text('option', p.title+(window.TH_DIRECT_MODE?' · '+(p.owner_company||'소속 미지정'):'')+' · '+(p.detail||'상세주소 없음')+' · '+(p.person||'성명 없음')+' · '+(p.phone||'연락처 없음')); opt.value = p.id; opt.dataset.address=p.address+' '+(p.detail||''); select.append(opt); }
       select.value = value;
     }
     document.querySelectorAll("fieldset.stop").forEach(extraPartnerChoice);
@@ -430,7 +430,7 @@
   }
   function fillLocation(prefix, location) {
     const from = prefix === 'from', address = form.elements[prefix];
-    address.dataset.businessName=location.title||location.company||'';address.dataset.businessAddress=location.address||'';address.dataset.businessDetail=location.detail||'';
+    address.dataset.savedPartner=JSON.stringify(location);delete address.dataset.savePartner;address.dataset.businessName=location.title||location.company||'';address.dataset.businessAddress=location.address||'';address.dataset.businessDetail=location.detail||'';
     address.value = location.address; for (const key of ['selectedAddress', 'areaCode', 'township', 'county']) delete address.dataset[key];
     Object.assign(address.dataset, location.address_meta || location.addressMeta || {}); address.dataset.selectedAddress = location.address;
     form.elements[prefix + 'Detail'].value = location.detail || '';
@@ -464,7 +464,7 @@
       edit.hidden=!window.TH_DIRECT_MODE;remove.hidden=!window.TH_DIRECT_MODE||Boolean(p.client_linked);
       edit.type = remove.type = 'button'; edit.onclick = () => editPartner(p);
       remove.onclick = async () => {
-        if (!confirm(p.title + ' 거래처를 모든 의뢰자의 공용 목록에서 숨길까요?')) return; remove.disabled = true;
+        if (!confirm(p.title + ' 거래처를 해당 의뢰자의 목록에서 숨길까요?')) return; remove.disabled = true;
         try { await api.api('/rest/v1/th6_partners?id=eq.' + p.id, { method: 'DELETE' }); await loadPartners(); }
         catch (e) { $('partnerError').textContent = e.message; remove.disabled = false; }
       };
@@ -525,7 +525,7 @@
     if(targetForm===form){for(const id of ['paymentMethod','splitPair','splitRatio'])values[id]=$(id).value;values.splitPayment=$('splitPayment').checked?'on':'';}
     return { contract:targetForm===form?window.TH_CONTRACT.data():null,service: values.serviceType || '일반 배송', fields: values, nightEnabled: window.TH_PORTAL.nightEnabled, nightRate: window.TH_PORTAL.nightRate, rainEnabled: window.TH_PORTAL.rainEnabled, rainRate: window.TH_PORTAL.rainEnabled?0.2:0,
       quote: targetForm === form ? window.TH_FARE.quote(window.TH_MAP.getDistance()) : null,
-      locations: targetForm === form ? window.TH_ORDER.routeLocations().map(p => ({ label: p.label, businessName: p.businessName||'', address_meta: addressMeta(p.address), address: p.address.value, detail: p.detail.value, person: contactValue(p.person), phone: contactValue(p.phone) })) : [] };
+      locations: targetForm === form ? window.TH_ORDER.routeLocations().map(p => ({ label: p.label, businessName: p.businessName||'', address_meta: addressMeta(p.address), address: p.address.value, detail: p.detail.value, person: contactValue(p.person), phone: contactValue(p.phone),savePartner:p.address.dataset.savePartner!=='false' })) : [] };
   }
   async function submit(targetForm, summaryText, targetDoc) {
     const button = targetDoc.getElementById('sms'), edit = targetDoc.getElementById('edit'), message = targetDoc.getElementById('message');
@@ -536,6 +536,7 @@
       requireMember();
       if (targetForm === form && !orderAttempt && previousNight !== window.TH_PORTAL.nightRate) throw Error('야간요금 적용 시간이 바뀌었습니다. 최종 요금을 다시 확인하고 접수해 주세요.');
       if(targetForm===form&&!orderAttempt&&previousRain!==window.TH_PORTAL.rainEnabled){throw Error('우천 할증 설정이 변경되었습니다. 최종 요금을 다시 확인하고 접수해 주세요.');}
+      if(!orderAttempt&&targetForm===form&&profile)await window.TH_PARTNER_CHOICE.review(window.TH_ORDER.routeLocations());
       const t = orderAttempt?.context || await ensureThread(true);
       if (!orderAttempt) orderAttempt = { id: crypto.randomUUID(), thread: t.id, context: { ...t }, summary: summaryText, payload: payload(targetForm) };
       message.textContent = '주문을 접수하고 있습니다…';
